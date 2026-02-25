@@ -180,6 +180,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Environment files (contain cluster-specific secrets/IDs)
+.env
+.env.*
+!.env.template
+
 # Node.js
 node_modules/
 npm-debug.log*
