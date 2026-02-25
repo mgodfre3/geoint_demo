@@ -46,9 +46,23 @@ Get-Content $EnvFile | ForEach-Object {
 $ResourceGroup     = $envVars['AZURE_RESOURCE_GROUP']
 $Location          = $envVars['AZURE_LOCATION']
 $SubscriptionId    = $envVars['AZURE_SUBSCRIPTION_ID']
-$CustomLocationId  = $envVars['AZURE_CUSTOM_LOCATION_ID']
-$LogicalNetworkId  = $envVars['AZURE_LOGICAL_NETWORK_ID']
-$GalleryImageId    = $envVars['AZURE_GALLERY_IMAGE_ID']
+# --- Build full ARM resource IDs from subscription + RG + name ---
+$SubId = $envVars['AZURE_SUBSCRIPTION_ID']
+$Rg    = $envVars['AZURE_RESOURCE_GROUP']
+
+$CustomLocationName = $envVars['AZURE_CUSTOM_LOCATION_NAME']
+$LogicalNetworkName = $envVars['AZURE_LOGICAL_NETWORK_NAME']
+$GalleryImageName   = $envVars['AZURE_GALLERY_IMAGE_NAME']
+
+$CustomLocationId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.ExtendedLocation/customLocations/$CustomLocationName"
+$LogicalNetworkId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.AzureStackHCI/logicalNetworks/$LogicalNetworkName"
+$GalleryImageId    = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.AzureStackHCI/galleryImages/$GalleryImageName"
+
+# Export the computed IDs so Bicep param file can read them
+[Environment]::SetEnvironmentVariable('AZURE_CUSTOM_LOCATION_ID', $CustomLocationId, 'Process')
+[Environment]::SetEnvironmentVariable('AZURE_LOGICAL_NETWORK_ID', $LogicalNetworkId, 'Process')
+[Environment]::SetEnvironmentVariable('AZURE_GALLERY_IMAGE_ID', $GalleryImageId, 'Process')
+
 $AcrName           = $envVars['ACR_NAME']
 $ClusterName       = $envVars['AKS_CLUSTER_NAME']
 $FluxRepoUrl       = $envVars['FLUX_REPO_URL']
@@ -62,11 +76,12 @@ if ($SshKeyPath -and $SshKeyPath.StartsWith('~')) {
 
 # Validate required vars
 $required = @{
-    'AZURE_RESOURCE_GROUP'     = $ResourceGroup
-    'AZURE_CUSTOM_LOCATION_ID' = $CustomLocationId
-    'AZURE_LOGICAL_NETWORK_ID' = $LogicalNetworkId
-    'AZURE_GALLERY_IMAGE_ID'   = $GalleryImageId
-    'ACR_NAME'                 = $AcrName
+    'AZURE_SUBSCRIPTION_ID'        = $SubId
+    'AZURE_RESOURCE_GROUP'         = $Rg
+    'AZURE_CUSTOM_LOCATION_NAME'   = $CustomLocationName
+    'AZURE_LOGICAL_NETWORK_NAME'   = $LogicalNetworkName
+    'AZURE_GALLERY_IMAGE_NAME'     = $GalleryImageName
+    'ACR_NAME'                     = $AcrName
 }
 $missing = $required.GetEnumerator() | Where-Object { -not $_.Value -or $_.Value -match '<.+>' }
 if ($missing) {
