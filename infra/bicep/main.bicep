@@ -25,6 +25,9 @@ param sshPublicKey string
 @description('Admin username for VMs')
 param adminUsername string = 'azureuser'
 
+@description('Gallery image resource ID for VM OS (e.g., Ubuntu 22.04 from Azure Marketplace)')
+param galleryImageId string
+
 // AKS Arc Cluster
 module aksCluster 'aks-cluster.bicep' = {
   name: 'deploy-aks-cluster'
@@ -44,7 +47,9 @@ module vmGeoServer 'vm-deployments.bicep' = {
     logicalNetworkId: logicalNetworkId
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
-    vmSize: 'Standard_D8s_v3'
+    galleryImageId: galleryImageId
+    vCPUCount: 8
+    memoryMB: 16384
     osDiskSizeGB: 128
     dataDiskSizeGB: 256
   }
@@ -59,7 +64,9 @@ module vmGlobe 'vm-deployments.bicep' = {
     logicalNetworkId: logicalNetworkId
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
-    vmSize: 'Standard_D4s_v3'
+    galleryImageId: galleryImageId
+    vCPUCount: 4
+    memoryMB: 8192
     osDiskSizeGB: 128
     dataDiskSizeGB: 64
   }
