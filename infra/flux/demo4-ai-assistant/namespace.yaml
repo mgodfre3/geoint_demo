@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: geoint-assistant
+  labels:
+    app.kubernetes.io/part-of: geoint-demo
+    demo: ai-assistant

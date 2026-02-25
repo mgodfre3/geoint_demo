@@ -1,0 +1,13 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: geoint-demos
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./infra/flux
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: geoint-demo
+  targetNamespace: default

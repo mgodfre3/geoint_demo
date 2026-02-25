@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vision-pipeline
+  namespace: geoint-vision
+  labels:
+    app: vision-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vision-pipeline
+  template:
+    metadata:
+      labels:
+        app: vision-pipeline
+    spec:
+      containers:
+        # Foundry Local — multimodal vision model
+        - name: foundry-local
+          image: ${ACR_NAME}.azurecr.io/geoint/foundry-local:latest
+          ports:
+            - containerPort: 5273
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              memory: "8Gi"
+            requests:
+              memory: "4Gi"
+          env:
+            - name: FOUNDRY_MODEL
+              value: "microsoft/Phi-3.5-vision-instruct"
+
+        # YOLOv8 satellite object detection
+        - name: yolov8-detector
+          image: ${ACR_NAME}.azurecr.io/geoint/yolov8-satellite:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              memory: "4Gi"
+            requests:
+              memory: "2Gi"
+
+        # FastAPI backend
+        - name: api-backend
+          image: ${ACR_NAME}.azurecr.io/geoint/vision-api:latest
+          ports:
+            - containerPort: 8082
+          resources:
+            limits:
+              memory: "2Gi"
+            requests:
+              memory: "1Gi"
+          env:
+            - name: FOUNDRY_URL
+              value: "http://localhost:5273"
+            - name: YOLO_URL
+              value: "http://localhost:8000"
+
+        # React frontend
+        - name: frontend
+          image: ${ACR_NAME}.azurecr.io/geoint/vision-ui:latest
+          ports:
+            - containerPort: 8081
+          resources:
+            limits:
+              memory: "512Mi"
+            requests:
+              memory: "256Mi"

@@ -179,3 +179,24 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Docker
+*.tar
+
+# Model weights (too large for git)
+*.pt
+*.onnx
+*.bin
+*.safetensors
+
+# GeoServer data (generated at runtime)
+demo2-geo-platform/geoserver/data_dir/gwc/
+demo2-geo-platform/geoserver/data_dir/logs/
+
+# Tile data (too large for git)
+*.mbtiles
+*.pmtiles

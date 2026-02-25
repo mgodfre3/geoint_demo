@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEOINT Platform — Azure Local</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; }
+        #header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+            border-bottom: 2px solid #0078d4;
+        }
+        #header h1 { font-size: 18px; font-weight: 600; color: #fff; }
+        #header .badge {
+            background: #0078d4; color: #fff; padding: 4px 12px;
+            border-radius: 12px; font-size: 12px; font-weight: 500;
+        }
+        #map { position: absolute; top: 56px; bottom: 0; left: 0; right: 0; }
+        #sidebar {
+            position: fixed; top: 56px; right: 0; bottom: 0; width: 320px;
+            background: rgba(10, 10, 10, 0.92); backdrop-filter: blur(8px);
+            padding: 16px; overflow-y: auto; z-index: 500;
+            border-left: 1px solid #333;
+        }
+        #sidebar h3 { color: #0078d4; margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .layer-toggle {
+            display: flex; align-items: center; gap: 8px; padding: 8px 0;
+            border-bottom: 1px solid #222; cursor: pointer;
+        }
+        .layer-toggle input { accent-color: #0078d4; }
+        .layer-toggle label { cursor: pointer; font-size: 14px; }
+        .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #00c853; }
+        .cesium-panel {
+            margin-top: 16px; border: 1px solid #333; border-radius: 8px;
+            overflow: hidden; height: 200px; background: #111;
+        }
+        .cesium-panel iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🌍 GEOINT Intelligence Platform</h1>
+        <span class="badge">Azure Local</span>
+        <span class="badge" style="background: #00c853;">● Live</span>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="sidebar">
+        <h3>Intelligence Layers</h3>
+        <div class="layer-toggle">
+            <input type="checkbox" id="layer-nai" checked>
+            <div class="status-indicator"></div>
+            <label for="layer-nai">Named Areas of Interest</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="layer-poi" checked>
+            <div class="status-indicator"></div>
+            <label for="layer-poi">Points of Interest</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="layer-detections" checked>
+            <div class="status-indicator" style="background: #ff5252;"></div>
+            <label for="layer-detections">AI Detections</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="layer-sensors">
+            <div class="status-indicator" style="background: #ffc107;"></div>
+            <label for="layer-sensors">Sensor Coverage</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="layer-tracks">
+            <div class="status-indicator" style="background: #2196f3;"></div>
+            <label for="layer-tracks">Movement Tracks</label>
+        </div>
+
+        <h3 style="margin-top: 24px;">3D Terrain View</h3>
+        <div class="cesium-panel">
+            <iframe src="cesium-panel.html" title="3D View"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    'osm-raster': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors',
+                    },
+                },
+                layers: [
+                    {
+                        id: 'osm-raster-layer',
+                        type: 'raster',
+                        source: 'osm-raster',
+                        minzoom: 0,
+                        maxzoom: 19,
+                    },
+                ],
+            },
+            center: [-77.0369, 38.8951],
+            zoom: 12,
+            pitch: 45,
+            bearing: -17,
+        });
+
+        map.addControl(new maplibregl.NavigationControl());
+        map.addControl(new maplibregl.ScaleControl());
+
+        map.on('load', () => {
+            // Named Areas of Interest
+            map.addSource('nai', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            properties: { name: 'Pentagon Observation Zone', priority: 'high' },
+                            geometry: {
+                                type: 'Polygon',
+                                coordinates: [[[-77.06,38.87],[-77.04,38.87],[-77.04,38.88],[-77.06,38.88],[-77.06,38.87]]]
+                            }
+                        },
+                        {
+                            type: 'Feature',
+                            properties: { name: 'Reagan Airport Approach', priority: 'normal' },
+                            geometry: {
+                                type: 'Polygon',
+                                coordinates: [[[-77.05,38.84],[-77.03,38.84],[-77.03,38.86],[-77.05,38.86],[-77.05,38.84]]]
+                            }
+                        }
+                    ]
+                }
+            });
+
+            map.addLayer({
+                id: 'nai-fill',
+                type: 'fill',
+                source: 'nai',
+                paint: {
+                    'fill-color': ['case', ['==', ['get', 'priority'], 'high'], '#ff5252', '#ffc107'],
+                    'fill-opacity': 0.15,
+                }
+            });
+
+            map.addLayer({
+                id: 'nai-outline',
+                type: 'line',
+                source: 'nai',
+                paint: {
+                    'line-color': ['case', ['==', ['get', 'priority'], 'high'], '#ff5252', '#ffc107'],
+                    'line-width': 2,
+                    'line-dasharray': [4, 2],
+                }
+            });
+
+            // Points of Interest
+            map.addSource('poi', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        { type: 'Feature', properties: { name: 'Washington Monument' }, geometry: { type: 'Point', coordinates: [-77.0352, 38.8895] }},
+                        { type: 'Feature', properties: { name: 'Capitol Building' }, geometry: { type: 'Point', coordinates: [-77.0091, 38.8899] }},
+                        { type: 'Feature', properties: { name: 'NGA HQ' }, geometry: { type: 'Point', coordinates: [-77.1482, 38.7509] }},
+                    ]
+                }
+            });
+
+            map.addLayer({
+                id: 'poi-points',
+                type: 'circle',
+                source: 'poi',
+                paint: {
+                    'circle-radius': 8,
+                    'circle-color': '#0078d4',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff',
+                }
+            });
+
+            // Layer toggle handlers
+            document.querySelectorAll('.layer-toggle input').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const layerMap = {
+                        'layer-nai': ['nai-fill', 'nai-outline'],
+                        'layer-poi': ['poi-points'],
+                    };
+                    const layers = layerMap[e.target.id] || [];
+                    layers.forEach(l => {
+                        if (map.getLayer(l)) {
+                            map.setLayoutProperty(l, 'visibility', e.target.checked ? 'visible' : 'none');
+                        }
+                    });
+                });
+            });
+
+            // Click handler for POIs
+            map.on('click', 'poi-points', (e) => {
+                const props = e.features[0].properties;
+                new maplibregl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`<strong>${props.name}</strong>`)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', 'poi-points', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'poi-points', () => map.getCanvas().style.cursor = '');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyst-assistant
+  namespace: geoint-assistant
+  labels:
+    app: analyst-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analyst-assistant
+  template:
+    metadata:
+      labels:
+        app: analyst-assistant
+    spec:
+      containers:
+        # Foundry Local — SLM for chat
+        - name: foundry-local
+          image: ${ACR_NAME}.azurecr.io/geoint/foundry-local-chat:latest
+          ports:
+            - containerPort: 5273
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              memory: "8Gi"
+            requests:
+              memory: "4Gi"
+          env:
+            - name: FOUNDRY_MODEL
+              value: "microsoft/Phi-4-mini"
+
+        # ChromaDB vector store
+        - name: chromadb
+          image: chromadb/chroma:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              memory: "2Gi"
+            requests:
+              memory: "1Gi"
+          volumeMounts:
+            - name: chroma-data
+              mountPath: /chroma/chroma
+
+        # RAG backend + Chat API
+        - name: chat-backend
+          image: ${ACR_NAME}.azurecr.io/geoint/chat-api:latest
+          ports:
+            - containerPort: 8087
+          resources:
+            limits:
+              memory: "2Gi"
+            requests:
+              memory: "1Gi"
+          env:
+            - name: FOUNDRY_URL
+              value: "http://localhost:5273"
+            - name: CHROMA_URL
+              value: "http://localhost:8000"
+            - name: VISION_API_URL
+              value: "http://vision-pipeline.geoint-vision.svc:8082"
+
+        # Streamlit frontend
+        - name: chat-ui
+          image: ${ACR_NAME}.azurecr.io/geoint/chat-ui:latest
+          ports:
+            - containerPort: 8086
+          resources:
+            limits:
+              memory: "512Mi"
+            requests:
+              memory: "256Mi"
+          env:
+            - name: API_URL
+              value: "http://localhost:8087"
+
+      volumes:
+        - name: chroma-data
+          emptyDir: {}
