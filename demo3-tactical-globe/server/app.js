@@ -13,6 +13,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, '../client')));
+app.use(express.json());
 
 // Broadcast to all connected clients
 function broadcast(data) {
@@ -27,6 +28,13 @@ function broadcast(data) {
 // Health endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'healthy', service: 'tactical-globe', clients: wss.clients.size });
+});
+
+// Accept detection results from Demo 1 and broadcast to globe clients
+app.post('/api/detections', (req, res) => {
+    const detections = req.body;
+    broadcast({ type: 'detection_update', timestamp: new Date().toISOString(), detections });
+    res.json({ status: 'ok', broadcast: wss.clients.size });
 });
 
 // Simulated entity state

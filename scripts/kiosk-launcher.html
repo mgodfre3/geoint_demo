@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEOINT on Azure Local — Launcher</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a0a; color: #e0e0e0;
+            min-height: 100vh; display: flex; flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            text-align: center; padding: 48px 24px 32px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 3px solid #0078d4;
+        }
+        header .logo-area {
+            display: inline-block; width: 48px; height: 48px;
+            background: #0078d4; border-radius: 8px; margin-bottom: 12px;
+            line-height: 48px; font-size: 24px; color: #fff;
+        }
+        header h1 {
+            font-size: 36px; font-weight: 700; color: #fff; letter-spacing: -0.5px;
+        }
+        header h1 span { color: #0078d4; }
+        header p {
+            margin-top: 8px; font-size: 15px; color: #999; letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 24px; padding: 40px; max-width: 1100px;
+            margin: 0 auto; flex: 1; width: 100%;
+        }
+        @media (max-width: 720px) {
+            .grid { grid-template-columns: 1fr; padding: 24px 16px; }
+            header h1 { font-size: 24px; }
+        }
+
+        /* Cards */
+        .card {
+            background: #141414; border: 1px solid #2a2a2a; border-radius: 12px;
+            padding: 28px; display: flex; flex-direction: column;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: #0078d4;
+            box-shadow: 0 8px 32px rgba(0, 120, 212, 0.15);
+        }
+        .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .card-icon { font-size: 32px; }
+        .card-title { font-size: 20px; font-weight: 600; color: #fff; }
+        .card-desc { font-size: 14px; color: #aaa; line-height: 1.5; flex: 1; margin-bottom: 20px; }
+
+        .card-footer { display: flex; align-items: center; justify-content: space-between; }
+        .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888; }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #555;
+            transition: background 0.3s ease;
+        }
+        .status-dot.ok { background: #00c853; box-shadow: 0 0 6px #00c853; }
+        .status-dot.err { background: #ff5252; }
+
+        .btn-launch {
+            background: #0078d4; color: #fff; border: none; padding: 10px 24px;
+            border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s ease;
+            text-decoration: none; display: inline-block;
+        }
+        .btn-launch:hover { background: #106ebe; }
+
+        /* Footer */
+        footer {
+            text-align: center; padding: 20px 24px;
+            border-top: 1px solid #222; color: #666; font-size: 13px;
+        }
+        footer span { color: #0078d4; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-area">⬡</div>
+        <h1>GEOINT on <span>Azure Local</span></h1>
+        <p>Tactical Edge Intelligence Demonstrations</p>
+    </header>
+
+    <div class="grid">
+        <!-- Demo 1 -->
+        <div class="card" data-url="http://localhost:5001">
+            <div class="card-header">
+                <span class="card-icon">🛰️</span>
+                <span class="card-title">AI Vision Pipeline</span>
+            </div>
+            <p class="card-desc">
+                Satellite imagery object detection using YOLOv8 + Foundry Local.
+                Upload imagery and get AI-annotated results with bounding boxes.
+            </p>
+            <div class="card-footer">
+                <div class="status">
+                    <span class="status-dot" id="status-1"></span>
+                    <span id="status-text-1">Checking…</span>
+                </div>
+                <a class="btn-launch" href="http://localhost:5001" target="_blank">Launch</a>
+            </div>
+        </div>
+
+        <!-- Demo 2 -->
+        <div class="card" data-url="http://localhost:5002">
+            <div class="card-header">
+                <span class="card-icon">🌍</span>
+                <span class="card-title">Geospatial Platform</span>
+            </div>
+            <p class="card-desc">
+                Full geospatial stack — GeoServer, PostGIS, TileServer GL —
+                with interactive MapLibre GL JS + CesiumJS 3D viewer.
+            </p>
+            <div class="card-footer">
+                <div class="status">
+                    <span class="status-dot" id="status-2"></span>
+                    <span id="status-text-2">Checking…</span>
+                </div>
+                <a class="btn-launch" href="http://localhost:5002" target="_blank">Launch</a>
+            </div>
+        </div>
+
+        <!-- Demo 3 -->
+        <div class="card" data-url="http://localhost:5003">
+            <div class="card-header">
+                <span class="card-icon">🌐</span>
+                <span class="card-title">3D Tactical Globe</span>
+            </div>
+            <p class="card-desc">
+                CesiumJS globe with simulated tracks, sensor coverage,
+                and AI-detected objects. Auto-playing kiosk mode.
+            </p>
+            <div class="card-footer">
+                <div class="status">
+                    <span class="status-dot" id="status-3"></span>
+                    <span id="status-text-3">Checking…</span>
+                </div>
+                <a class="btn-launch" href="http://localhost:5003" target="_blank">Launch</a>
+            </div>
+        </div>
+
+        <!-- Demo 4 -->
+        <div class="card" data-url="http://localhost:5004">
+            <div class="card-header">
+                <span class="card-icon">🤖</span>
+                <span class="card-title">Analyst AI Assistant</span>
+            </div>
+            <p class="card-desc">
+                Chat-based GEOINT analyst assistant powered by Foundry Local
+                with RAG over intelligence reports.
+            </p>
+            <div class="card-footer">
+                <div class="status">
+                    <span class="status-dot" id="status-4"></span>
+                    <span id="status-text-4">Checking…</span>
+                </div>
+                <a class="btn-launch" href="http://localhost:5004" target="_blank">Launch</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Powered by <span>Azure Local</span> | Microsoft &nbsp;·&nbsp; GEOINT 2026 Symposium
+    </footer>
+
+    <script>
+        const endpoints = [
+            { id: 1, url: 'http://localhost:5001' },
+            { id: 2, url: 'http://localhost:5002' },
+            { id: 3, url: 'http://localhost:5003' },
+            { id: 4, url: 'http://localhost:5004' },
+        ];
+
+        async function checkHealth() {
+            for (const ep of endpoints) {
+                const dot = document.getElementById(`status-${ep.id}`);
+                const text = document.getElementById(`status-text-${ep.id}`);
+                try {
+                    const res = await fetch(ep.url, { mode: 'no-cors', cache: 'no-store' });
+                    dot.className = 'status-dot ok';
+                    text.textContent = 'Online';
+                } catch {
+                    dot.className = 'status-dot err';
+                    text.textContent = 'Offline';
+                }
+            }
+        }
+
+        checkHealth();
+        setInterval(checkHealth, 10000);
+    </script>
+</body>
+</html>

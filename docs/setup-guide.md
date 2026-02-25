@@ -1,5 +1,7 @@
 # Setup Guide — GEOINT Demo on Azure Local
 
+> **Taking this to an event?** See the [Event Runbook](event-runbook.md) for step-by-step booth setup, demo operation, and troubleshooting.
+
 ## Prerequisites
 
 1. **Azure Local Cluster** — 2-node cluster deployed and registered with Azure Arc

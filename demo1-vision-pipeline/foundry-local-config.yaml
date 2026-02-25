@@ -1,0 +1,66 @@
+# Foundry Local — Configuration Reference for GEOINT Vision Pipeline
+# ====================================================================
+# Foundry Local provides an OpenAI-compatible API running entirely on
+# local GPU hardware.  No data leaves the device.
+
+# ---------------------------------------------------------------------------
+# Supported Models
+# ---------------------------------------------------------------------------
+models:
+  - name: microsoft/Phi-3.5-vision-instruct
+    description: >
+      Multimodal (vision + text) model used for satellite image analysis.
+      Supports image_url content blocks via the chat completions endpoint.
+    use_case: Primary model for /analyze and /pipeline endpoints.
+
+  - name: microsoft/Phi-4-mini
+    description: >
+      Text-only compact model suitable for summarising YOLOv8 detection
+      results and generating tactical intelligence reports.
+    use_case: Fallback / text-only summarisation via /describe endpoint.
+
+# ---------------------------------------------------------------------------
+# Environment Variables
+# ---------------------------------------------------------------------------
+environment:
+  FOUNDRY_URL:
+    description: Base URL of the Foundry Local API.
+    default: "http://localhost:5273"
+
+  FOUNDRY_MODEL:
+    description: Model identifier sent in chat completion requests.
+    default: "microsoft/Phi-3.5-vision-instruct"
+
+# ---------------------------------------------------------------------------
+# GPU / Hardware Requirements
+# ---------------------------------------------------------------------------
+hardware:
+  gpu: NVIDIA A2 or higher (Ada / Ampere architecture)
+  vram: "16 GB minimum"
+  notes: >
+    Phi-3.5-vision-instruct loads ~8 GB in FP16.  16 GB VRAM gives
+    headroom for KV-cache during long context windows.  An A2 (16 GB)
+    or T4 (16 GB) is the minimum recommended card.
+
+# ---------------------------------------------------------------------------
+# Local Testing with the Foundry CLI
+# ---------------------------------------------------------------------------
+# 1. Install the Foundry CLI:
+#      winget install Microsoft.Foundry          # Windows
+#      brew install microsoft/foundry/foundry    # macOS
+#
+# 2. Pull and run the vision model:
+#      foundry model pull microsoft/Phi-3.5-vision-instruct
+#      foundry local start --model microsoft/Phi-3.5-vision-instruct --port 5273
+#
+# 3. Verify the API is listening:
+#      curl http://localhost:5273/v1/models
+#
+# 4. Run the backend (in another terminal):
+#      cd demo1-vision-pipeline/backend
+#      pip install -r requirements.txt
+#      uvicorn app:app --reload --port 8080
+#
+# 5. Test the pipeline:
+#      curl -X POST http://localhost:8080/analyze \
+#           -F "image=@test_satellite.jpg"

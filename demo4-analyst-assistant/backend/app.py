@@ -79,12 +79,33 @@ async def chat(request: ChatRequest):
 
     # Fetch recent detections if requested
     detections = []
+    detection_context = ""
     if request.include_detections:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                det_response = await client.get(f"{VISION_API_URL}/health")
+                det_response = await client.get(f"{VISION_API_URL}/detections/latest")
                 if det_response.status_code == 200:
-                    detections = [{"note": "Vision pipeline connected — query detections via /detect endpoint"}]
+                    det_data = det_response.json()
+                    features = det_data.get("features", [])
+                    if features:
+                        detections = features
+                        lines = []
+                        for i, f in enumerate(features):
+                            props = f.get("properties", {})
+                            coords = f.get("geometry", {}).get("coordinates", [[]])[0]
+                            center_lon = sum(c[0] for c in coords) / max(len(coords), 1)
+                            center_lat = sum(c[1] for c in coords) / max(len(coords), 1)
+                            lines.append(
+                                f"  - Detection {i+1}: {props.get('label', 'unknown')} "
+                                f"(confidence {props.get('confidence', 0):.0%}) "
+                                f"at ({center_lat:.4f}, {center_lon:.4f})"
+                            )
+                        detection_context = (
+                            "\n\n--- RECENT AI DETECTIONS ---\n"
+                            f"Total detections: {len(features)}\n"
+                            + "\n".join(lines) + "\n"
+                            "--- END DETECTIONS ---"
+                        )
         except Exception:
             pass
 
@@ -103,6 +124,12 @@ When referencing source documents, cite them as [Source N]."""
         messages.append({
             "role": "system",
             "content": f"Relevant intelligence context:\n{context_text}",
+        })
+
+    if detection_context:
+        messages.append({
+            "role": "system",
+            "content": detection_context,
         })
 
     messages.append({"role": "user", "content": request.message})

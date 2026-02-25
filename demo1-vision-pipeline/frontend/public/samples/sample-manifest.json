@@ -1,0 +1,22 @@
+{
+  "samples": [
+    {
+      "id": "airfield-01",
+      "name": "Military Airfield",
+      "description": "Satellite view of an active airfield with multiple aircraft on tarmac and nearby vehicle staging area.",
+      "filename": "airfield-01.jpg"
+    },
+    {
+      "id": "port-01",
+      "name": "Commercial Port",
+      "description": "High-resolution imagery of a busy shipping port with cargo vessels, cranes, and container yards.",
+      "filename": "port-01.jpg"
+    },
+    {
+      "id": "base-01",
+      "name": "Forward Operating Base",
+      "description": "Overhead view of a forward operating base showing vehicle formations, structures, and perimeter fencing.",
+      "filename": "base-01.jpg"
+    }
+  ]
+}

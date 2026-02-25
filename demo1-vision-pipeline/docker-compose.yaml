@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  # Main API gateway — proxies to YOLO + Foundry Local
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - YOLO_URL=http://yolo:8000
+      - FOUNDRY_URL=http://host.docker.internal:5273
+    depends_on:
+      yolo:
+        condition: service_healthy
+
+  # YOLOv8 object detection sidecar
+  yolo:
+    build:
+      context: .
+      dockerfile: Dockerfile.yolo
+    ports:
+      - "8000:8000"
+    environment:
+      - YOLO_MODEL_PATH=yolov8n.pt
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
