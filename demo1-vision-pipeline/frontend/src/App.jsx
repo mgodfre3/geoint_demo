@@ -80,10 +80,11 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/pipeline`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
-      setResults(data);
+      // Normalize: YOLO returns {detections: [...], count, ...} inside pipeline's detections field
+      const dets = data.detections?.detections || data.detections || [];
+      setResults({ ...data, detections: dets });
     } catch (e) {
       setError(e.message);
-      // Generate mock results for demo when API is unavailable
       setResults(generateMockResults());
     } finally {
       setLoading(false);

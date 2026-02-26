@@ -132,23 +132,29 @@ async def full_pipeline(
     detection_result = None
     analysis_result = None
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        # YOLOv8 detection
-        det_response = await client.post(
-            f"{YOLO_URL}/predict",
-            files={"image": (image.filename, contents, "image/jpeg")},
-            data={"confidence": str(confidence)},
-        )
-        if det_response.status_code == 200:
-            detection_result = det_response.json()
+    # Run YOLO detection (primary) — short timeout
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            det_response = await client.post(
+                f"{YOLO_URL}/predict",
+                files={"image": (image.filename, contents, "image/jpeg")},
+                data={"confidence": str(confidence)},
+            )
+            if det_response.status_code == 200:
+                detection_result = det_response.json()
+    except Exception:
+        pass
 
-        # Foundry Local analysis
+    # Run Foundry analysis (best-effort, don't block on failure)
+    try:
         analysis_result = await foundry_client.analyze_image(
             contents,
             "Analyze this satellite image. Describe the terrain, identify visible structures, vehicles, and any notable activity.",
         )
-        if "error" in analysis_result:
-            analysis_result = None
+        if isinstance(analysis_result, dict) and "error" in analysis_result:
+            analysis_result = {"text": "AI analysis unavailable — LLM model not loaded yet."}
+    except Exception:
+        analysis_result = {"text": "AI analysis unavailable — LLM model not loaded yet."}
 
     _store_detections(detection_result)
 

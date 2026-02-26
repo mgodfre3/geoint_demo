@@ -9,12 +9,17 @@ export default function ResultsPanel({ results, error, classColors }) {
   }
 
   const detections = results?.detections || [];
-  const analysis = results?.analysis || '';
+  // Handle analysis as string or object with text/choices
+  let analysis = results?.analysis || '';
+  if (typeof analysis === 'object') {
+    analysis = analysis.text || analysis.choices?.[0]?.message?.content || JSON.stringify(analysis);
+  }
 
-  // Count detections by class
+  // Count detections by class (support both 'class' and 'class_name' keys)
   const counts = {};
   detections.forEach((d) => {
-    counts[d.class] = (counts[d.class] || 0) + 1;
+    const cls = d.class || d.class_name || 'unknown';
+    counts[cls] = (counts[cls] || 0) + 1;
   });
 
   const classOrder = ['vehicle', 'aircraft', 'ship', 'building'];
@@ -77,21 +82,27 @@ export default function ResultsPanel({ results, error, classColors }) {
         <>
           <h3>Detections</h3>
           <div className="detection-list">
-            {detections.map((det, i) => (
+            {detections.map((det, i) => {
+              const cls = det.class || det.class_name || 'unknown';
+              const bboxStr = Array.isArray(det.bbox)
+                ? det.bbox.join(', ')
+                : det.bbox ? `${det.bbox.x1}, ${det.bbox.y1}, ${det.bbox.x2}, ${det.bbox.y2}` : '';
+              return (
               <div className="detection-card" key={i}>
                 <div
                   className="class-dot"
-                  style={{ background: classColors[det.class] || '#0078d4' }}
+                  style={{ background: classColors[cls] || '#0078d4' }}
                 />
-                <span className="class-name">{det.class}</span>
+                <span className="class-name">{cls}</span>
                 <span className="coords">
-                  [{det.bbox.join(', ')}]
+                  [{bboxStr}]
                 </span>
                 <span className="confidence">
                   {Math.round(det.confidence * 100)}%
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

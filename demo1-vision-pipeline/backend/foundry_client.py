@@ -21,7 +21,7 @@ _CHAT_ENDPOINT = "/v1/chat/completions"
 _MODELS_ENDPOINT = "/v1/models"
 
 # Sensible defaults for satellite imagery workloads
-_DEFAULT_TIMEOUT = 120  # seconds — vision models can be slow
+_DEFAULT_TIMEOUT = 15  # seconds — fail fast if model not loaded
 _MAX_TOKENS = 1024
 
 

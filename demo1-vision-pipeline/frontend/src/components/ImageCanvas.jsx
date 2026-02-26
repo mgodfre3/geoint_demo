@@ -16,8 +16,17 @@ export default function ImageCanvas({ imageSrc, detections, classColors }) {
 
       // Draw bounding boxes
       detections.forEach((det) => {
-        const [x1, y1, x2, y2] = det.bbox;
-        const color = classColors[det.class] || '#0078d4';
+        // Support both array [x1,y1,x2,y2] and object {x1,y1,x2,y2} bbox formats
+        let x1, y1, x2, y2;
+        if (Array.isArray(det.bbox)) {
+          [x1, y1, x2, y2] = det.bbox;
+        } else if (det.bbox && typeof det.bbox === 'object') {
+          ({ x1, y1, x2, y2 } = det.bbox);
+        } else {
+          return;
+        }
+        const cls = det.class || det.class_name || 'unknown';
+        const color = classColors[cls] || '#0078d4';
         const w = x2 - x1;
         const h = y2 - y1;
 
@@ -37,7 +46,7 @@ export default function ImageCanvas({ imageSrc, detections, classColors }) {
         ctx.fillRect(x1, y1, w, h);
 
         // Label background
-        const label = `${det.class} ${Math.round(det.confidence * 100)}%`;
+        const label = `${cls} ${Math.round(det.confidence * 100)}%`;
         ctx.font = 'bold 14px Segoe UI, system-ui, sans-serif';
         const textMetrics = ctx.measureText(label);
         const labelW = textMetrics.width + 12;
