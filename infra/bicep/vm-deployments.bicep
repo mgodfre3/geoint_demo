@@ -1,4 +1,6 @@
 // VM Deployment on Azure Local via Azure Arc
+// Azure Local VMs require a HybridCompute/machines parent resource
+// with a virtualMachineInstances/default child extension resource.
 
 @description('VM name')
 param vmName string
@@ -28,8 +30,20 @@ param galleryImageId string
 @description('Storage path ID for VM disks (from: az stack-hci-vm storagepath list)')
 param storagePathId string = ''
 
-resource vm 'Microsoft.AzureStackHCI/virtualMachineInstances@2024-01-01' = {
+// Parent Arc machine resource
+resource arcMachine 'Microsoft.HybridCompute/machines@2024-07-10' = {
   name: vmName
+  location: resourceGroup().location
+  kind: 'HCI'
+  identity: {
+    type: 'SystemAssigned'
+  }
+}
+
+// VM instance as extension resource on the Arc machine
+resource vmInstance 'Microsoft.AzureStackHCI/virtualMachineInstances/default@2024-01-01' = {
+  name: 'default'
+  scope: arcMachine
   extendedLocation: {
     type: 'CustomLocation'
     name: customLocationId
@@ -69,5 +83,5 @@ resource vm 'Microsoft.AzureStackHCI/virtualMachineInstances@2024-01-01' = {
   }
 }
 
-output vmId string = vm.id
-output vmName string = vm.name
+output vmId string = arcMachine.id
+output vmName string = arcMachine.name
