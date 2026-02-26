@@ -241,9 +241,9 @@ Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
 
 Write-Host ""
 Write-Host "=== Deployment Complete ===" -ForegroundColor Green
-Write-Host "Demo 1 (Vision Pipeline): http://$($envVars['NODE1_IP']):30081"
+Write-Host "Demo 1 (Vision Pipeline): http://$($envVars['AKS_WORKER_IP']):30081"
 Write-Host "Demo 2 (Geo Platform):    http://$($envVars['VM_GEOSERVER_IP']):8083"
 Write-Host "Demo 3 (Tactical Globe):  http://$($envVars['VM_GLOBE_IP']):8085"
-Write-Host "Demo 4 (AI Assistant):    http://$($envVars['NODE2_IP']):30086"
+Write-Host "Demo 4 (AI Assistant):    http://$($envVars['AKS_WORKER_IP']):30087"
 Write-Host ""
 Write-Host "Kiosk Launcher:           scripts\kiosk-launcher.html"
