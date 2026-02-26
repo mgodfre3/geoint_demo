@@ -145,16 +145,20 @@ async def full_pipeline(
     except Exception:
         pass
 
-    # Run Foundry analysis (best-effort, don't block on failure)
+    # Run LLM analysis on detection results (best-effort)
     try:
-        analysis_result = await foundry_client.analyze_image(
-            contents,
-            "Analyze this satellite image. Describe the terrain, identify visible structures, vehicles, and any notable activity.",
-        )
+        if detection_result and detection_result.get("detections"):
+            analysis_result = await foundry_client.describe_detections(detection_result)
+        else:
+            analysis_result = await foundry_client.describe_detections(
+                {"detections": [], "count": 0, "note": "No objects detected by YOLO"}
+            )
         if isinstance(analysis_result, dict) and "error" in analysis_result:
-            analysis_result = {"text": "AI analysis unavailable — LLM model not loaded yet."}
-    except Exception:
-        analysis_result = {"text": "AI analysis unavailable — LLM model not loaded yet."}
+            logger.warning("LLM analysis error: %s", analysis_result)
+            analysis_result = {"text": "AI analysis unavailable — LLM returned an error."}
+    except Exception as exc:
+        logger.warning("LLM analysis exception: %s", exc)
+        analysis_result = {"text": "AI analysis unavailable — LLM inference failed."}
 
     _store_detections(detection_result)
 
