@@ -3,7 +3,7 @@ import DropZone from './components/DropZone';
 import ImageCanvas from './components/ImageCanvas';
 import ResultsPanel from './components/ResultsPanel';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8082';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 const KIOSK_INTERVAL = 30000;
 
 const CLASS_COLORS = {
