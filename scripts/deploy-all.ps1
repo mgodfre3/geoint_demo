@@ -172,7 +172,10 @@ Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
             --query name -o tsv 2>$null
         if (-not $extExists) {
             Write-Host "  Installing bootstrap extension on '$($vm.Name)'..." -ForegroundColor Gray
-            $scriptCmd = "curl -fsSL '$bootstrapUrl' | bash -s $($vm.Role) '$FluxRepoUrl' '$FluxBranch'"
+            $scriptCmd = "curl -fsSL $bootstrapUrl | bash -s $($vm.Role) $FluxRepoUrl $FluxBranch"
+            $settingsJson = @{ commandToExecute = $scriptCmd } | ConvertTo-Json -Compress
+            $settingsFile = "$env:TEMP\cse-settings-$($vm.Name).json"
+            $settingsJson | Out-File -FilePath $settingsFile -Encoding utf8
             az connectedmachine extension create `
                 --name "BootstrapDocker" `
                 --machine-name $vm.Name `
@@ -181,9 +184,10 @@ Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
                 --type "CustomScript" `
                 --publisher "Microsoft.Azure.Extensions" `
                 --type-handler-version "2.1" `
-                --settings "{`"commandToExecute`": `"$scriptCmd`"}" `
+                --settings "@$settingsFile" `
                 --no-wait `
                 --output none
+            Remove-Item $settingsFile -ErrorAction SilentlyContinue
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "  [WARN] Bootstrap extension on '$($vm.Name)' may have failed" -ForegroundColor Yellow
             } else {
