@@ -8,11 +8,16 @@
 #   ./bootstrap-vm.sh globe       # for den-globe VM (Demo 3)
 # ============================================================
 
-set -euo pipefail
+set -eo pipefail
 
 ROLE="${1:-}"
 REPO_URL="${2:-https://github.com/mgodfre3/geoint_demo.git}"
 BRANCH="${3:-main}"
+CURRENT_USER="${USER:-${SUDO_USER:-root}}"
+
+# Suppress interactive prompts from apt (needrestart, kernel upgrade notices)
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
 
 if [[ -z "$ROLE" ]]; then
     echo "Usage: $0 <geoserver|globe> [repo-url] [branch]"
@@ -40,6 +45,10 @@ wait_for_apt() {
 # --- Install Docker ---
 if ! command -v docker &>/dev/null; then
     echo "[1/3] Installing Docker..."
+    # Disable needrestart to prevent interactive prompts
+    if [ -f /etc/needrestart/needrestart.conf ]; then
+        sudo sed -i "s/#\$nrconf{restart} = 'i'/\$nrconf{restart} = 'a'/" /etc/needrestart/needrestart.conf
+    fi
     wait_for_apt
     sudo apt-get update -qq
     wait_for_apt
@@ -53,8 +62,8 @@ if ! command -v docker &>/dev/null; then
     sudo apt-get update -qq
     wait_for_apt
     sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
-    sudo usermod -aG docker "$USER"
-    echo "  Docker installed. You may need to log out/in for group changes."
+    sudo usermod -aG docker "$CURRENT_USER" || true
+    echo "  Docker installed."
 else
     echo "[1/3] Docker already installed"
 fi
@@ -64,10 +73,10 @@ DEMO_DIR="/opt/geoint-demo"
 if [[ ! -d "$DEMO_DIR" ]]; then
     echo "[2/3] Cloning repository..."
     sudo git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$DEMO_DIR"
-    sudo chown -R "$USER:$USER" "$DEMO_DIR"
+    sudo chown -R "$CURRENT_USER:$CURRENT_USER" "$DEMO_DIR" || true
 else
     echo "[2/3] Repository already cloned, pulling latest..."
-    cd "$DEMO_DIR" && git pull origin "$BRANCH"
+    cd "$DEMO_DIR" && git pull origin "$BRANCH" || true
 fi
 
 # --- Start services ---
