@@ -9,6 +9,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import httpx
 import chromadb
@@ -157,3 +158,101 @@ When referencing source documents, cite them as [Source N]."""
         sources=sources,
         detections=detections,
     )
+
+
+CHAT_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GEOINT Analyst Assistant</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:16px 24px;border-bottom:2px solid #0078d4;display:flex;align-items:center;gap:16px}
+header h1{font-size:20px;color:#fff}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-azure{background:#0078d4;color:#fff}
+.badge-live{background:#00c853;color:#000}
+.container{display:flex;flex:1;overflow:hidden}
+.chat-panel{flex:2;display:flex;flex-direction:column;border-right:1px solid #222}
+.sidebar{flex:1;padding:16px;overflow-y:auto;max-width:320px}
+.messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{padding:12px 16px;border-radius:8px;max-width:85%;line-height:1.5;font-size:14px;white-space:pre-wrap}
+.msg-user{background:#0078d4;color:#fff;align-self:flex-end}
+.msg-assistant{background:#1a1a2e;border:1px solid #333;align-self:flex-start}
+.input-bar{padding:12px 16px;border-top:1px solid #222;display:flex;gap:8px}
+.input-bar input{flex:1;padding:10px 14px;border-radius:6px;border:1px solid #333;background:#111;color:#e0e0e0;font-size:14px;outline:none}
+.input-bar input:focus{border-color:#0078d4}
+.input-bar button{padding:10px 20px;border-radius:6px;border:none;background:#0078d4;color:#fff;font-weight:600;cursor:pointer}
+.input-bar button:disabled{opacity:.5;cursor:not-allowed}
+.sidebar h3{color:#aaa;font-size:13px;text-transform:uppercase;margin-bottom:12px}
+.quick-btn{display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;border-radius:6px;border:1px solid #333;background:#111;color:#ccc;cursor:pointer;font-size:13px}
+.quick-btn:hover{border-color:#0078d4;color:#fff}
+.source-card{background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px}
+.source-card strong{color:#0078d4}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #333;border-top-color:#0078d4;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.typing{padding:12px 16px;color:#888;font-size:13px;align-self:flex-start}
+</style>
+</head>
+<body>
+<header>
+<h1>&#127758; GEOINT Analyst Assistant</h1>
+<span class="badge badge-azure">Azure Local</span>
+<span class="badge badge-live">LIVE</span>
+</header>
+<div class="container">
+<div class="chat-panel">
+<div class="messages" id="messages">
+<div class="msg msg-assistant">Welcome! I'm your GEOINT analyst assistant powered by AI on Azure Local. Ask me about geospatial intelligence, satellite imagery analysis, or tactical information.</div>
+</div>
+<div class="input-bar">
+<input type="text" id="input" placeholder="Ask about geospatial intelligence..." autocomplete="off"/>
+<button id="send" onclick="sendMessage()">Send</button>
+</div>
+</div>
+<div class="sidebar">
+<h3>Quick Queries</h3>
+<button class="quick-btn" onclick="ask(this.textContent)">What objects were detected near the port?</button>
+<button class="quick-btn" onclick="ask(this.textContent)">Summarize activity in the observation zone</button>
+<button class="quick-btn" onclick="ask(this.textContent)">What facilities are near NGA headquarters?</button>
+<button class="quick-btn" onclick="ask(this.textContent)">Show recent detection alerts</button>
+<button class="quick-btn" onclick="ask(this.textContent)">Assess current threat level in the AOR</button>
+<div id="sources-section" style="margin-top:24px;display:none">
+<h3>Sources</h3>
+<div id="sources"></div>
+</div>
+</div>
+</div>
+<script>
+const msgs=document.getElementById('messages'),inp=document.getElementById('input'),btn=document.getElementById('send');
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!btn.disabled)sendMessage()});
+function ask(t){inp.value=t;sendMessage()}
+function addMsg(role,text){const d=document.createElement('div');d.className='msg msg-'+role;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight}
+async function sendMessage(){
+const text=inp.value.trim();if(!text)return;
+inp.value='';addMsg('user',text);
+btn.disabled=true;
+const typing=document.createElement('div');typing.className='typing';typing.innerHTML='<span class="spinner"></span>Analyzing...';msgs.appendChild(typing);msgs.scrollTop=msgs.scrollHeight;
+try{
+const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+typing.remove();
+if(!r.ok)throw new Error('API error '+r.status);
+const data=await r.json();
+addMsg('assistant',data.response);
+if(data.sources&&data.sources.length){
+const sec=document.getElementById('sources-section');sec.style.display='block';
+const sc=document.getElementById('sources');sc.innerHTML='';
+data.sources.forEach(s=>{const c=document.createElement('div');c.className='source-card';c.innerHTML='<strong>'+s.id+'</strong><br>'+s.text;sc.appendChild(c)});
+}
+}catch(e){typing.remove();addMsg('assistant','Error: '+e.message)}
+btn.disabled=false;inp.focus();
+}
+</script>
+</body>
+</html>"""
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return CHAT_HTML

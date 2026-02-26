@@ -66,6 +66,8 @@ spec:
               value: "http://localhost:8000"
             - name: VISION_API_URL
               value: "http://vision-pipeline.geoint-vision.svc:8082"
+            - name: FOUNDRY_MODEL
+              value: "phi3:mini"
 
       volumes:
         - name: ollama-data
