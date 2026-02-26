@@ -1,13 +1,9 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-metadata:
-  name: geoint-demos
-  namespace: flux-system
-spec:
-  interval: 5m
-  path: ./infra/flux
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: geoint-demo
-  targetNamespace: default
+resources:
+  - demo1-vision-pipeline/namespace.yaml
+  - demo1-vision-pipeline/deployment.yaml
+  - demo1-vision-pipeline/service.yaml
+  - demo4-ai-assistant/namespace.yaml
+  - demo4-ai-assistant/deployment.yaml
+  - demo4-ai-assistant/service.yaml

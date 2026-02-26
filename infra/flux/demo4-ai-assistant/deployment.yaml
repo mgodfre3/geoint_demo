@@ -18,7 +18,7 @@ spec:
       containers:
         # Foundry Local — SLM for chat
         - name: foundry-local
-          image: ${ACR_NAME}.azurecr.io/geoint/foundry-local-chat:latest
+          image: acrgeointdemo.azurecr.io/geoint/foundry-local-chat:latest
           ports:
             - containerPort: 5273
           resources:
@@ -47,7 +47,7 @@ spec:
 
         # RAG backend + Chat API
         - name: chat-backend
-          image: ${ACR_NAME}.azurecr.io/geoint/chat-api:latest
+          image: acrgeointdemo.azurecr.io/geoint/chat-api:latest
           ports:
             - containerPort: 8087
           resources:
@@ -65,7 +65,7 @@ spec:
 
         # Streamlit frontend
         - name: chat-ui
-          image: ${ACR_NAME}.azurecr.io/geoint/chat-ui:latest
+          image: acrgeointdemo.azurecr.io/geoint/chat-ui:latest
           ports:
             - containerPort: 8086
           resources:

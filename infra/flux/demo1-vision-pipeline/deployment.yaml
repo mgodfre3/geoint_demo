@@ -18,7 +18,7 @@ spec:
       containers:
         # Foundry Local — multimodal vision model
         - name: foundry-local
-          image: ${ACR_NAME}.azurecr.io/geoint/foundry-local:latest
+          image: acrgeointdemo.azurecr.io/geoint/foundry-local:latest
           ports:
             - containerPort: 5273
           resources:
@@ -33,7 +33,7 @@ spec:
 
         # YOLOv8 satellite object detection
         - name: yolov8-detector
-          image: ${ACR_NAME}.azurecr.io/geoint/yolov8-satellite:latest
+          image: acrgeointdemo.azurecr.io/geoint/yolov8-satellite:latest
           ports:
             - containerPort: 8000
           resources:
@@ -44,7 +44,7 @@ spec:
 
         # FastAPI backend
         - name: api-backend
-          image: ${ACR_NAME}.azurecr.io/geoint/vision-api:latest
+          image: acrgeointdemo.azurecr.io/geoint/vision-api:latest
           ports:
             - containerPort: 8082
           resources:
@@ -60,7 +60,7 @@ spec:
 
         # React frontend
         - name: frontend
-          image: ${ACR_NAME}.azurecr.io/geoint/vision-ui:latest
+          image: acrgeointdemo.azurecr.io/geoint/vision-ui:latest
           ports:
             - containerPort: 8081
           resources:
