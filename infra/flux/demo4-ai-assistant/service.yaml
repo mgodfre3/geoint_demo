@@ -8,10 +8,6 @@ spec:
   selector:
     app: analyst-assistant
   ports:
-    - name: chat-ui
-      port: 8086
-      targetPort: 8086
-      nodePort: 30086
     - name: chat-api
       port: 8087
       targetPort: 8087

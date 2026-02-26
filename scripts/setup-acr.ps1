@@ -15,6 +15,8 @@ $ErrorActionPreference = "Stop"
 
 $images = @(
     @{ Name = "geoint/vision-api"; Context = "demo1-vision-pipeline"; Dockerfile = "Dockerfile" },
+    @{ Name = "geoint/yolov8-satellite"; Context = "demo1-vision-pipeline"; Dockerfile = "Dockerfile.yolo" },
+    @{ Name = "geoint/vision-ui"; Context = "demo1-vision-pipeline/frontend"; Dockerfile = "Dockerfile" },
     @{ Name = "geoint/chat-api"; Context = "demo4-analyst-assistant"; Dockerfile = "Dockerfile" }
 )
 

@@ -16,20 +16,20 @@ spec:
         app: analyst-assistant
     spec:
       containers:
-        # Foundry Local — SLM for chat
-        - name: foundry-local
-          image: acrgeointdemo.azurecr.io/geoint/foundry-local-chat:latest
+        # Ollama — local LLM inference (replaces Foundry Local until container support ships)
+        - name: ollama
+          image: ollama/ollama:latest
           ports:
-            - containerPort: 5273
+            - containerPort: 11434
           resources:
             limits:
               nvidia.com/gpu: "1"
               memory: "8Gi"
             requests:
               memory: "4Gi"
-          env:
-            - name: FOUNDRY_MODEL
-              value: "microsoft/Phi-4-mini"
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
 
         # ChromaDB vector store
         - name: chromadb
@@ -57,26 +57,14 @@ spec:
               memory: "1Gi"
           env:
             - name: FOUNDRY_URL
-              value: "http://localhost:5273"
+              value: "http://localhost:11434"
             - name: CHROMA_URL
               value: "http://localhost:8000"
             - name: VISION_API_URL
               value: "http://vision-pipeline.geoint-vision.svc:8082"
 
-        # Streamlit frontend
-        - name: chat-ui
-          image: acrgeointdemo.azurecr.io/geoint/chat-ui:latest
-          ports:
-            - containerPort: 8086
-          resources:
-            limits:
-              memory: "512Mi"
-            requests:
-              memory: "256Mi"
-          env:
-            - name: API_URL
-              value: "http://localhost:8087"
-
       volumes:
+        - name: ollama-data
+          emptyDir: {}
         - name: chroma-data
           emptyDir: {}

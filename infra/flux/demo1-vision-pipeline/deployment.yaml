@@ -16,20 +16,20 @@ spec:
         app: vision-pipeline
     spec:
       containers:
-        # Foundry Local — multimodal vision model
-        - name: foundry-local
-          image: acrgeointdemo.azurecr.io/geoint/foundry-local:latest
+        # Ollama — local LLM inference (replaces Foundry Local until container support ships)
+        - name: ollama
+          image: ollama/ollama:latest
           ports:
-            - containerPort: 5273
+            - containerPort: 11434
           resources:
             limits:
               nvidia.com/gpu: "1"
               memory: "8Gi"
             requests:
               memory: "4Gi"
-          env:
-            - name: FOUNDRY_MODEL
-              value: "microsoft/Phi-3.5-vision-instruct"
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
 
         # YOLOv8 satellite object detection
         - name: yolov8-detector
@@ -54,7 +54,7 @@ spec:
               memory: "1Gi"
           env:
             - name: FOUNDRY_URL
-              value: "http://localhost:5273"
+              value: "http://localhost:11434"
             - name: YOLO_URL
               value: "http://localhost:8000"
 
@@ -62,9 +62,13 @@ spec:
         - name: frontend
           image: acrgeointdemo.azurecr.io/geoint/vision-ui:latest
           ports:
-            - containerPort: 8081
+            - containerPort: 80
           resources:
             limits:
               memory: "512Mi"
             requests:
               memory: "256Mi"
+
+      volumes:
+        - name: ollama-data
+          emptyDir: {}
