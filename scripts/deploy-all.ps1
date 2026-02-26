@@ -110,9 +110,14 @@ Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
     $GlobeVmName = $envVars['VM_GLOBE_NAME']
     $AdminUser   = $envVars['VM_ADMIN_USERNAME']
 
+    # Bootstrap script URL from the same repo Flux uses
+    $repoRaw = $FluxRepoUrl -replace 'github\.com', 'raw.githubusercontent.com'
+    $repoRaw = $repoRaw -replace '\.git$', ''
+    $bootstrapUrl = "$repoRaw/$FluxBranch/scripts/bootstrap-vm.sh"
+
     $vmParams = @(
-        @{ Name = $GeoVmName;   Desc = "GeoServer (Demo 2)" },
-        @{ Name = $GlobeVmName; Desc = "CesiumJS Globe (Demo 3)" }
+        @{ Name = $GeoVmName;   Role = "geoserver"; Desc = "GeoServer (Demo 2)" },
+        @{ Name = $GlobeVmName; Role = "globe";     Desc = "CesiumJS Globe (Demo 3)" }
     )
 
     foreach ($vm in $vmParams) {
@@ -157,6 +162,35 @@ Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
             } else {
                 Write-Host "  [OK] VM '$($vm.Name)' created" -ForegroundColor Green
             }
+        }
+
+        # Install Custom Script Extension to bootstrap Docker + demo services
+        $extExists = az connectedmachine extension show `
+            --name "BootstrapDocker" `
+            --machine-name $vm.Name `
+            --resource-group $ResourceGroup `
+            --query name -o tsv 2>$null
+        if (-not $extExists) {
+            Write-Host "  Installing bootstrap extension on '$($vm.Name)'..." -ForegroundColor Gray
+            $scriptCmd = "curl -fsSL '$bootstrapUrl' | bash -s $($vm.Role) '$FluxRepoUrl' '$FluxBranch'"
+            az connectedmachine extension create `
+                --name "BootstrapDocker" `
+                --machine-name $vm.Name `
+                --resource-group $ResourceGroup `
+                --location $Location `
+                --type "CustomScript" `
+                --publisher "Microsoft.Azure.Extensions" `
+                --type-handler-version "2.1" `
+                --settings "{`"commandToExecute`": `"$scriptCmd`"}" `
+                --no-wait `
+                --output none
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [WARN] Bootstrap extension on '$($vm.Name)' may have failed" -ForegroundColor Yellow
+            } else {
+                Write-Host "  [OK] Bootstrap extension queued on '$($vm.Name)'" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "  [OK] Bootstrap extension already installed on '$($vm.Name)'" -ForegroundColor Green
         }
     }
 
