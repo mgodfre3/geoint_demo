@@ -6,13 +6,3 @@ services:
     volumes:
       - ./client:/app/public:ro
     restart: unless-stopped
-
-  data-generator:
-    build:
-      context: ./server
-      dockerfile: Dockerfile.generator
-    environment:
-      - WS_URL=ws://globe-server:8085
-    depends_on:
-      - globe-server
-    restart: unless-stopped
