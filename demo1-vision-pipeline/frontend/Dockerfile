@@ -11,7 +11,8 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # SPA fallback + API proxy config (localhost because containers share network in K8s pod)
-RUN printf 'server {\n\
+RUN printf 'client_max_body_size 50m;\n\
+server {\n\
   listen 80;\n\
   root /usr/share/nginx/html;\n\
   index index.html;\n\
@@ -22,6 +23,7 @@ RUN printf 'server {\n\
     proxy_pass http://localhost:8082/;\n\
     proxy_set_header Host $host;\n\
     proxy_set_header X-Real-IP $remote_addr;\n\
+    proxy_read_timeout 120s;\n\
   }\n\
 }\n' > /etc/nginx/conf.d/default.conf
 
