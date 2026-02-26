@@ -62,7 +62,7 @@ spec:
             - name: YOLO_URL
               value: "http://localhost:8000"
             - name: FOUNDRY_MODEL
-              value: "phi3:mini"
+              value: "qwen2:0.5b"
 
         # React frontend
         - name: frontend
