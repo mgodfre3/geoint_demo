@@ -51,16 +51,12 @@ $SubscriptionId    = $envVars['AZURE_SUBSCRIPTION_ID']
 $SubId = $envVars['AZURE_SUBSCRIPTION_ID']
 $Rg    = $envVars['AZURE_RESOURCE_GROUP']
 
-$CustomLocationName = $envVars['AZURE_CUSTOM_LOCATION_NAME']
-$LogicalNetworkName = $envVars['AZURE_LOGICAL_NETWORK_NAME']
-
-$CustomLocationId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.ExtendedLocation/customLocations/$CustomLocationName"
-$LogicalNetworkId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.AzureStackHCI/logicalNetworks/$LogicalNetworkName"
-
-# Gallery image is a full resource ID (may be in a different RG)
+# These are full ARM resource IDs (may point to a different RG than the demo)
+$CustomLocationId  = $envVars['AZURE_CUSTOM_LOCATION_ID']
+$LogicalNetworkId  = $envVars['AZURE_LOGICAL_NETWORK_ID']
 $GalleryImageId    = $envVars['AZURE_GALLERY_IMAGE_ID']
 
-# Export the computed IDs so Bicep param file can read them
+# Export the IDs so Bicep param file can read them
 [Environment]::SetEnvironmentVariable('AZURE_CUSTOM_LOCATION_ID', $CustomLocationId, 'Process')
 [Environment]::SetEnvironmentVariable('AZURE_LOGICAL_NETWORK_ID', $LogicalNetworkId, 'Process')
 [Environment]::SetEnvironmentVariable('AZURE_GALLERY_IMAGE_ID', $GalleryImageId, 'Process')
@@ -80,8 +76,8 @@ if ($SshKeyPath -and $SshKeyPath.StartsWith('~')) {
 $required = @{
     'AZURE_SUBSCRIPTION_ID'        = $SubId
     'AZURE_RESOURCE_GROUP'         = $Rg
-    'AZURE_CUSTOM_LOCATION_NAME'   = $CustomLocationName
-    'AZURE_LOGICAL_NETWORK_NAME'   = $LogicalNetworkName
+    'AZURE_CUSTOM_LOCATION_ID'     = $CustomLocationId
+    'AZURE_LOGICAL_NETWORK_ID'     = $LogicalNetworkId
     'AZURE_GALLERY_IMAGE_ID'       = $GalleryImageId
     'ACR_NAME'                     = $AcrName
 }
