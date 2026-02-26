@@ -41,7 +41,7 @@ resource arcMachine 'Microsoft.HybridCompute/machines@2024-07-10' = {
 }
 
 // VM instance as extension resource on the Arc machine
-resource vmInstance 'Microsoft.AzureStackHCI/virtualMachineInstances/default@2024-01-01' = {
+resource vmInstance 'Microsoft.AzureStackHCI/virtualMachineInstances@2024-01-01' = {
   name: 'default'
   scope: arcMachine
   extendedLocation: {

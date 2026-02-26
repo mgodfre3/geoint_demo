@@ -185,6 +185,9 @@ cython_debug/
 .env.*
 !.env.template
 
+# Compiled Bicep ARM templates
+infra/bicep/*.json
+
 # Node.js
 node_modules/
 npm-debug.log*
