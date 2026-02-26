@@ -65,12 +65,7 @@ $AcrName           = $envVars['ACR_NAME']
 $ClusterName       = $envVars['AKS_CLUSTER_NAME']
 $FluxRepoUrl       = $envVars['FLUX_REPO_URL']
 $FluxBranch        = $envVars['FLUX_BRANCH']
-$SshKeyPath        = $envVars['VM_SSH_KEY_PATH']
-
-# Expand ~ in SSH key path
-if ($SshKeyPath -and $SshKeyPath.StartsWith('~')) {
-    $SshKeyPath = $SshKeyPath.Replace('~', $env:USERPROFILE)
-}
+$AdminPassword     = $envVars['VM_ADMIN_PASSWORD']
 
 # Validate required vars
 $required = @{
@@ -80,6 +75,7 @@ $required = @{
     'AZURE_LOGICAL_NETWORK_ID'     = $LogicalNetworkId
     'AZURE_GALLERY_IMAGE_ID'       = $GalleryImageId
     'ACR_NAME'                     = $AcrName
+    'VM_ADMIN_PASSWORD'            = $AdminPassword
 }
 $missing = $required.GetEnumerator() | Where-Object { -not $_.Value -or $_.Value -match '<.+>' }
 if ($missing) {
@@ -110,21 +106,13 @@ if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Resource group may already exist
 
 # Step 2: Deploy VMs via Azure CLI (Bicep types for Azure Local VMs are not stable)
 Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
-if (-not (Test-Path $SshKeyPath)) {
-    Write-Host "  [SKIP] SSH key not found at $SshKeyPath - skipping VM deployment" -ForegroundColor Yellow
-} else {
     $GeoVmName  = $envVars['VM_GEOSERVER_NAME']
     $GlobeVmName = $envVars['VM_GLOBE_NAME']
     $AdminUser   = $envVars['VM_ADMIN_USERNAME']
-    $GeoVCPU     = $envVars['VM_GEOSERVER_VCPU']
-    $GeoMemMB    = $envVars['VM_GEOSERVER_MEMORY_MB']
-    $GlobeVCPU   = $envVars['VM_GLOBE_VCPU']
-    $GlobeMemMB  = $envVars['VM_GLOBE_MEMORY_MB']
-    $CustomLoc   = $envVars['AZURE_CUSTOM_LOCATION_NAME']
 
     $vmParams = @(
-        @{ Name = $GeoVmName;   VCPU = $GeoVCPU;   MemMB = $GeoMemMB;   Desc = "GeoServer (Demo 2)" },
-        @{ Name = $GlobeVmName; VCPU = $GlobeVCPU;  MemMB = $GlobeMemMB; Desc = "CesiumJS Globe (Demo 3)" }
+        @{ Name = $GeoVmName;   Desc = "GeoServer (Demo 2)" },
+        @{ Name = $GlobeVmName; Desc = "CesiumJS Globe (Demo 3)" }
     )
 
     foreach ($vm in $vmParams) {
@@ -149,7 +137,7 @@ if (-not (Test-Path $SshKeyPath)) {
                 }
             }
 
-            # Create the VM
+            # Create the VM with password authentication
             Write-Host "  Creating VM: $($vm.Name) ($($vm.Desc))..." -ForegroundColor Gray
             az stack-hci-vm create `
                 --name $vm.Name `
@@ -157,8 +145,8 @@ if (-not (Test-Path $SshKeyPath)) {
                 --custom-location $CustomLocationId `
                 --image $GalleryImageId `
                 --admin-username $AdminUser `
-                --authentication-type ssh `
-                --ssh-key-values $SshKeyPath `
+                --admin-password $AdminPassword `
+                --authentication-type password `
                 --nics $nicName `
                 --computer-name $vm.Name `
                 --size Default `
@@ -171,7 +159,6 @@ if (-not (Test-Path $SshKeyPath)) {
             }
         }
     }
-}
 
 # Step 3: Create ACR if needed, then build container images
 Write-Host "[3/5] Building container images via ACR Tasks..." -ForegroundColor Yellow
