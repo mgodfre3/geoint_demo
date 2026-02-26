@@ -18,17 +18,17 @@ spec:
       imagePullSecrets:
         - name: acr-secret
       containers:
-        # Ollama — local LLM inference (CPU mode; add nvidia.com/gpu limit when device plugin is installed)
+        # Ollama — local LLM inference
         - name: ollama
           image: ollama/ollama:latest
           ports:
             - containerPort: 11434
           resources:
             limits:
-              memory: "2Gi"
+              memory: "6Gi"
             requests:
-              cpu: "250m"
-              memory: "1Gi"
+              cpu: "500m"
+              memory: "4Gi"
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
@@ -40,10 +40,10 @@ spec:
             - containerPort: 8000
           resources:
             limits:
-              memory: "512Mi"
+              memory: "1Gi"
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "512Mi"
           volumeMounts:
             - name: chroma-data
               mountPath: /chroma/chroma
@@ -55,10 +55,10 @@ spec:
             - containerPort: 8087
           resources:
             limits:
-              memory: "512Mi"
+              memory: "1Gi"
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "250m"
+              memory: "512Mi"
           env:
             - name: FOUNDRY_URL
               value: "http://localhost:11434"
@@ -67,7 +67,7 @@ spec:
             - name: VISION_API_URL
               value: "http://vision-pipeline.geoint-vision.svc:8082"
             - name: FOUNDRY_MODEL
-              value: "qwen2:0.5b"
+              value: "phi3:mini"
 
       volumes:
         - name: ollama-data

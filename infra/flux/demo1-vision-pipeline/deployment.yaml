@@ -18,17 +18,17 @@ spec:
       imagePullSecrets:
         - name: acr-secret
       containers:
-        # Ollama — local LLM inference (CPU mode; add nvidia.com/gpu limit when device plugin is installed)
+        # Ollama — local LLM inference
         - name: ollama
           image: ollama/ollama:latest
           ports:
             - containerPort: 11434
           resources:
             limits:
-              memory: "2Gi"
+              memory: "6Gi"
             requests:
-              cpu: "250m"
-              memory: "1Gi"
+              cpu: "500m"
+              memory: "4Gi"
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
@@ -40,10 +40,10 @@ spec:
             - containerPort: 8000
           resources:
             limits:
-              memory: "2Gi"
+              memory: "4Gi"
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "500m"
+              memory: "1Gi"
 
         # FastAPI backend
         - name: api-backend
@@ -52,7 +52,7 @@ spec:
             - containerPort: 8082
           resources:
             limits:
-              memory: "1Gi"
+              memory: "2Gi"
             requests:
               cpu: "250m"
               memory: "512Mi"
@@ -62,7 +62,7 @@ spec:
             - name: YOLO_URL
               value: "http://localhost:8000"
             - name: FOUNDRY_MODEL
-              value: "qwen2:0.5b"
+              value: "phi3:mini"
 
         # React frontend
         - name: frontend
