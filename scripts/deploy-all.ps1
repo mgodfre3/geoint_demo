@@ -115,20 +115,26 @@ if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Resource group may already exist
 # Step 2: Deploy infrastructure via Bicep
 Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
 if (Test-Path $SshKeyPath) {
-    $sshKey = Get-Content $SshKeyPath -Raw
+    $sshKey = (Get-Content $SshKeyPath -Raw).Trim()
+    [Environment]::SetEnvironmentVariable('SSH_PUBLIC_KEY', $sshKey, 'Process')
     az deployment group create `
         --resource-group $ResourceGroup `
         --template-file infra/bicep/main.bicep `
         --parameters infra/bicep/main.bicepparam `
-        --parameters sshPublicKey="$sshKey" `
         --output none
     if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Bicep deployment had errors - check Azure Portal" -ForegroundColor Yellow }
 } else {
     Write-Host "  [SKIP] SSH key not found at $SshKeyPath - skipping VM deployment" -ForegroundColor Yellow
 }
 
-# Step 3: Push container images to ACR
+# Step 3: Create ACR if needed, then build container images
 Write-Host "[3/5] Building container images via ACR Tasks..." -ForegroundColor Yellow
+$acrExists = az acr show --name $AcrName --query name -o tsv 2>$null
+if (-not $acrExists) {
+    Write-Host "  Creating ACR: $AcrName..." -ForegroundColor Gray
+    az acr create --resource-group $ResourceGroup --name $AcrName --sku Standard --output none
+    if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Failed to create ACR" -ForegroundColor Yellow }
+}
 & "$PSScriptRoot\setup-acr.ps1" -AcrName $AcrName
 
 # Step 4: Configure Flux GitOps (requires AKS cluster to exist)

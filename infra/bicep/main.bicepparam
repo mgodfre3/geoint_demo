@@ -19,4 +19,4 @@ param vmGeoServerName = readEnvironmentVariable('VM_GEOSERVER_NAME', 'vm-geoserv
 
 param vmGlobeName = readEnvironmentVariable('VM_GLOBE_NAME', 'vm-globe')
 
-// sshPublicKey is loaded at deploy time by the script
+param sshPublicKey = readEnvironmentVariable('SSH_PUBLIC_KEY')
