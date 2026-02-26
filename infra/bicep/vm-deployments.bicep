@@ -22,14 +22,11 @@ param vCPUCount int = 4
 @description('Memory in MB for the VM')
 param memoryMB int = 8192
 
-@description('OS disk size in GB')
-param osDiskSizeGB int = 128
-
-@description('Data disk size in GB')
-param dataDiskSizeGB int = 64
-
 @description('Gallery image resource ID for the VM OS')
 param galleryImageId string
+
+@description('Storage path ID for VM disks (from: az stack-hci-vm storagepath list)')
+param storagePathId string = ''
 
 resource vm 'Microsoft.AzureStackHCI/virtualMachineInstances@2024-01-01' = {
   name: vmName
@@ -60,18 +57,7 @@ resource vm 'Microsoft.AzureStackHCI/virtualMachineInstances@2024-01-01' = {
       imageReference: {
         id: galleryImageId
       }
-      osDisk: {
-        osType: 'Linux'
-        createOption: 'FromImage'
-        diskSizeGB: osDiskSizeGB
-      }
-      dataDisks: [
-        {
-          diskSizeGB: dataDiskSizeGB
-          createOption: 'Empty'
-          lun: 0
-        }
-      ]
+      vmConfigStoragePathId: storagePathId != '' ? storagePathId : null
     }
     networkProfile: {
       networkInterfaces: [

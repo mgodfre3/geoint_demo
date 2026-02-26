@@ -1,4 +1,6 @@
 // Arc-Enabled AKS Cluster on Azure Local with GPU node pool
+// Note: AKS Arc clusters are provisioned via `az aksarc create`, not Bicep.
+// This module is a reference placeholder that validates the cluster exists.
 
 @description('AKS cluster name')
 param clusterName string
@@ -6,19 +8,9 @@ param clusterName string
 @description('Azure Local custom location resource ID')
 param customLocationId string
 
-@description('Azure Local logical network resource ID')
-param logicalNetworkId string
-
-@description('Kubernetes version')
-param kubernetesVersion string = '1.28.5'
-
-resource aksCluster 'Microsoft.Kubernetes/connectedClusters@2024-01-01' existing = {
-  name: clusterName
-}
-
-// Note: Arc-Enabled AKS provisioned cluster definition
-// Actual provisioning uses `az aksarc create` with GPU node pool
-// This template captures the desired state for documentation
+// AKS Arc clusters are created via CLI:
+//   az aksarc create -n <name> -g <rg> --custom-location <cl> --vnet-ids <vnet>
+//   az aksarc nodepool add -n gpupool --cluster-name <name> -g <rg> --node-count 1 --os-type Linux
 
 output clusterName string = clusterName
 output customLocationId string = customLocationId

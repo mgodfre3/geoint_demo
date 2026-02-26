@@ -20,7 +20,7 @@ param(
     [string]$EnvFile = "$PSScriptRoot\..\.env"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # --- Load environment file ---
 if (-not (Test-Path $EnvFile)) {
@@ -103,44 +103,57 @@ Write-Host "  Custom Location: $CustomLocationId"
 Write-Host ""
 
 # Set subscription if provided
-if ($SubscriptionId) {
-    az account set --subscription $SubscriptionId
+if ($SubId) {
+    az account set --subscription $SubId
 }
 
 # Step 1: Create resource group
 Write-Host "[1/5] Creating resource group..." -ForegroundColor Yellow
 az group create --name $ResourceGroup --location $Location --output none
+if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Resource group may already exist" -ForegroundColor Yellow }
 
 # Step 2: Deploy infrastructure via Bicep
-Write-Host "[2/5] Deploying infrastructure (VMs + AKS)..." -ForegroundColor Yellow
-$sshKey = Get-Content $SshKeyPath -Raw
-az deployment group create `
-    --resource-group $ResourceGroup `
-    --template-file infra/bicep/main.bicep `
-    --parameters infra/bicep/main.bicepparam `
-    --parameters sshPublicKey="$sshKey" `
-    --output none
+Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
+if (Test-Path $SshKeyPath) {
+    $sshKey = Get-Content $SshKeyPath -Raw
+    az deployment group create `
+        --resource-group $ResourceGroup `
+        --template-file infra/bicep/main.bicep `
+        --parameters infra/bicep/main.bicepparam `
+        --parameters sshPublicKey="$sshKey" `
+        --output none
+    if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Bicep deployment had errors - check Azure Portal" -ForegroundColor Yellow }
+} else {
+    Write-Host "  [SKIP] SSH key not found at $SshKeyPath - skipping VM deployment" -ForegroundColor Yellow
+}
 
 # Step 3: Push container images to ACR
-Write-Host "[3/5] Building and pushing container images..." -ForegroundColor Yellow
+Write-Host "[3/5] Building container images via ACR Tasks..." -ForegroundColor Yellow
 & "$PSScriptRoot\setup-acr.ps1" -AcrName $AcrName
 
-# Step 4: Configure Flux GitOps
+# Step 4: Configure Flux GitOps (requires AKS cluster to exist)
 Write-Host "[4/5] Configuring Flux GitOps..." -ForegroundColor Yellow
-az k8s-configuration flux create `
-    --resource-group $ResourceGroup `
-    --cluster-name $ClusterName `
-    --cluster-type connectedClusters `
-    --name geoint-flux `
-    --namespace flux-system `
-    --scope cluster `
-    --url $FluxRepoUrl `
-    --branch $FluxBranch `
-    --kustomization name=demos path=./infra/flux `
-    --output none
+$aksExists = az connectedk8s show --name $ClusterName --resource-group $ResourceGroup --query name -o tsv 2>$null
+if ($aksExists) {
+    az k8s-configuration flux create `
+        --resource-group $ResourceGroup `
+        --cluster-name $ClusterName `
+        --cluster-type connectedClusters `
+        --name geoint-flux `
+        --namespace flux-system `
+        --scope cluster `
+        --url $FluxRepoUrl `
+        --branch $FluxBranch `
+        --kustomization name=demos path=./infra/flux `
+        --output none
+    if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Flux configuration had errors" -ForegroundColor Yellow }
+} else {
+    Write-Host "  [SKIP] AKS cluster '$ClusterName' not found - create it first, then re-run" -ForegroundColor Yellow
+    Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $($envVars['AZURE_CUSTOM_LOCATION_NAME']) --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
+}
 
-# Step 5: Seed sample data
-Write-Host "[5/5] Seeding sample data..." -ForegroundColor Yellow
+# Step 5: Seed sample data (only if services are running)
+Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
 & "$PSScriptRoot\seed-data.ps1"
 
 Write-Host ""

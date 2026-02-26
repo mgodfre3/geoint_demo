@@ -7,7 +7,7 @@
     GEOINT reports into the running demo services.
 #>
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host "=== Seeding GEOINT Demo Data ===" -ForegroundColor Cyan
 
@@ -30,9 +30,9 @@ $services = @(
 foreach ($svc in $services) {
     try {
         $response = Invoke-WebRequest -Uri $svc.Url -TimeoutSec 5 -ErrorAction Stop
-        Write-Host "  ✓ $($svc.Name) — OK" -ForegroundColor Green
+        Write-Host "  [OK] $($svc.Name)" -ForegroundColor Green
     } catch {
-        Write-Host "  ✗ $($svc.Name) — Not reachable ($($svc.Url))" -ForegroundColor Red
+        Write-Host "  [FAIL] $($svc.Name) - Not reachable ($($svc.Url))" -ForegroundColor Red
     }
 }
 

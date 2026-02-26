@@ -34,7 +34,6 @@ module aksCluster 'aks-cluster.bicep' = {
   params: {
     clusterName: clusterName
     customLocationId: customLocationId
-    logicalNetworkId: logicalNetworkId
   }
 }
 
@@ -50,8 +49,6 @@ module vmGeoServer 'vm-deployments.bicep' = {
     galleryImageId: galleryImageId
     vCPUCount: 8
     memoryMB: 16384
-    osDiskSizeGB: 128
-    dataDiskSizeGB: 256
   }
 }
 
@@ -67,8 +64,6 @@ module vmGlobe 'vm-deployments.bicep' = {
     galleryImageId: galleryImageId
     vCPUCount: 4
     memoryMB: 8192
-    osDiskSizeGB: 128
-    dataDiskSizeGB: 64
   }
 }
 
