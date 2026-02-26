@@ -15,6 +15,8 @@ spec:
       labels:
         app: vision-pipeline
     spec:
+      imagePullSecrets:
+        - name: acr-secret
       containers:
         # Ollama — local LLM inference (replaces Foundry Local until container support ships)
         - name: ollama

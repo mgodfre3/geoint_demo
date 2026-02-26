@@ -224,6 +224,12 @@ if ($aksExists) {
         --kustomization name=demos path=./infra/flux `
         --output none
     if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Flux configuration had errors" -ForegroundColor Yellow }
+
+    # Create ACR pull secret — requires kubectl access to the cluster
+    # Run this after connecting: az connectedk8s proxy -n <cluster> -g <rg>
+    Write-Host "  [NOTE] Create ACR pull secrets manually after connecting to the cluster:" -ForegroundColor Gray
+    Write-Host "         az connectedk8s proxy -n $ClusterName -g $ResourceGroup" -ForegroundColor Gray
+    Write-Host "         Then run: .\scripts\create-acr-secret.ps1 -AcrName $AcrName" -ForegroundColor Gray
 } else {
     Write-Host "  [SKIP] AKS cluster '$ClusterName' not found - create it first, then re-run" -ForegroundColor Yellow
     Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $CustomLocationId --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
