@@ -25,10 +25,10 @@ spec:
             - containerPort: 11434
           resources:
             limits:
-              memory: "4Gi"
-            requests:
-              cpu: "500m"
               memory: "2Gi"
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
@@ -40,10 +40,10 @@ spec:
             - containerPort: 8000
           resources:
             limits:
-              memory: "1Gi"
-            requests:
-              cpu: "250m"
               memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
           volumeMounts:
             - name: chroma-data
               mountPath: /chroma/chroma
@@ -55,10 +55,10 @@ spec:
             - containerPort: 8087
           resources:
             limits:
-              memory: "1Gi"
-            requests:
-              cpu: "250m"
               memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
           env:
             - name: FOUNDRY_URL
               value: "http://localhost:11434"
