@@ -36,8 +36,9 @@ Get-Content $EnvFile | ForEach-Object {
     if ($line -and -not $line.StartsWith('#')) {
         $parts = $line -split '=', 2
         if ($parts.Length -eq 2 -and $parts[1]) {
-            $envVars[$parts[0]] = $parts[1]
-            [Environment]::SetEnvironmentVariable($parts[0], $parts[1], 'Process')
+            $val = $parts[1].Trim('"', "'", ' ')
+            $envVars[$parts[0]] = $val
+            [Environment]::SetEnvironmentVariable($parts[0], $val, 'Process')
         }
     }
 }
