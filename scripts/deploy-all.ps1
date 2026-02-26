@@ -188,7 +188,7 @@ if ($aksExists) {
     if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Flux configuration had errors" -ForegroundColor Yellow }
 } else {
     Write-Host "  [SKIP] AKS cluster '$ClusterName' not found - create it first, then re-run" -ForegroundColor Yellow
-    Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $($envVars['AZURE_CUSTOM_LOCATION_NAME']) --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
+    Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $CustomLocationId --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
 }
 
 # Step 5: Seed sample data (only if services are running)
