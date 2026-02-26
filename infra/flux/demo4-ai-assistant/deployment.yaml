@@ -18,17 +18,17 @@ spec:
       imagePullSecrets:
         - name: acr-secret
       containers:
-        # Ollama — local LLM inference (replaces Foundry Local until container support ships)
+        # Ollama — local LLM inference (CPU mode; add nvidia.com/gpu limit when device plugin is installed)
         - name: ollama
           image: ollama/ollama:latest
           ports:
             - containerPort: 11434
           resources:
             limits:
-              nvidia.com/gpu: "1"
-              memory: "8Gi"
-            requests:
               memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
@@ -40,9 +40,10 @@ spec:
             - containerPort: 8000
           resources:
             limits:
-              memory: "2Gi"
-            requests:
               memory: "1Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
           volumeMounts:
             - name: chroma-data
               mountPath: /chroma/chroma
@@ -54,9 +55,10 @@ spec:
             - containerPort: 8087
           resources:
             limits:
-              memory: "2Gi"
-            requests:
               memory: "1Gi"
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
           env:
             - name: FOUNDRY_URL
               value: "http://localhost:11434"
