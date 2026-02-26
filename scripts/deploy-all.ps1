@@ -52,11 +52,12 @@ $Rg    = $envVars['AZURE_RESOURCE_GROUP']
 
 $CustomLocationName = $envVars['AZURE_CUSTOM_LOCATION_NAME']
 $LogicalNetworkName = $envVars['AZURE_LOGICAL_NETWORK_NAME']
-$GalleryImageName   = $envVars['AZURE_GALLERY_IMAGE_NAME']
 
 $CustomLocationId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.ExtendedLocation/customLocations/$CustomLocationName"
 $LogicalNetworkId  = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.AzureStackHCI/logicalNetworks/$LogicalNetworkName"
-$GalleryImageId    = "/subscriptions/$SubId/resourceGroups/$Rg/providers/Microsoft.AzureStackHCI/galleryImages/$GalleryImageName"
+
+# Gallery image is a full resource ID (may be in a different RG)
+$GalleryImageId    = $envVars['AZURE_GALLERY_IMAGE_ID']
 
 # Export the computed IDs so Bicep param file can read them
 [Environment]::SetEnvironmentVariable('AZURE_CUSTOM_LOCATION_ID', $CustomLocationId, 'Process')
@@ -80,7 +81,7 @@ $required = @{
     'AZURE_RESOURCE_GROUP'         = $Rg
     'AZURE_CUSTOM_LOCATION_NAME'   = $CustomLocationName
     'AZURE_LOGICAL_NETWORK_NAME'   = $LogicalNetworkName
-    'AZURE_GALLERY_IMAGE_NAME'     = $GalleryImageName
+    'AZURE_GALLERY_IMAGE_ID'       = $GalleryImageId
     'ACR_NAME'                     = $AcrName
 }
 $missing = $required.GetEnumerator() | Where-Object { -not $_.Value -or $_.Value -match '<.+>' }
