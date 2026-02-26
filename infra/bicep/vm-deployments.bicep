@@ -1,6 +1,14 @@
-// VM Deployment on Azure Local via Azure Arc
-// Azure Local VMs require a HybridCompute/machines parent resource
-// with a virtualMachineInstances/default child extension resource.
+// VM Deployment on Azure Local — REFERENCE ONLY
+// Azure Local VMs are deployed via CLI (az stack-hci-vm create) in deploy-all.ps1
+// because Bicep type definitions for Azure Stack HCI VMs are not stable.
+//
+// This file documents the desired VM configuration for reference.
+// Actual deployment command:
+//   az stack-hci-vm create --name <name> --resource-group <rg> \
+//     --custom-location <cl> --image <gallery-image-id> \
+//     --admin-username azureuser --ssh-key-values ~/.ssh/id_rsa.pub \
+//     --hardware-profile memory-mb=<mb> processors=<vcpu> \
+//     --nic-id <logical-network-id>
 
 @description('VM name')
 param vmName string

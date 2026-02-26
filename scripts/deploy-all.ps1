@@ -112,19 +112,48 @@ Write-Host "[1/5] Creating resource group..." -ForegroundColor Yellow
 az group create --name $ResourceGroup --location $Location --output none
 if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Resource group may already exist" -ForegroundColor Yellow }
 
-# Step 2: Deploy infrastructure via Bicep
+# Step 2: Deploy VMs via Azure CLI (Bicep types for Azure Local VMs are not stable)
 Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
-if (Test-Path $SshKeyPath) {
-    $sshKey = (Get-Content $SshKeyPath -Raw).Trim()
-    [Environment]::SetEnvironmentVariable('SSH_PUBLIC_KEY', $sshKey, 'Process')
-    az deployment group create `
-        --resource-group $ResourceGroup `
-        --template-file infra/bicep/main.bicep `
-        --parameters infra/bicep/main.bicepparam `
-        --output none
-    if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Bicep deployment had errors - check Azure Portal" -ForegroundColor Yellow }
-} else {
+if (-not (Test-Path $SshKeyPath)) {
     Write-Host "  [SKIP] SSH key not found at $SshKeyPath - skipping VM deployment" -ForegroundColor Yellow
+} else {
+    $GeoVmName  = $envVars['VM_GEOSERVER_NAME']
+    $GlobeVmName = $envVars['VM_GLOBE_NAME']
+    $AdminUser   = $envVars['VM_ADMIN_USERNAME']
+    $GeoVCPU     = $envVars['VM_GEOSERVER_VCPU']
+    $GeoMemMB    = $envVars['VM_GEOSERVER_MEMORY_MB']
+    $GlobeVCPU   = $envVars['VM_GLOBE_VCPU']
+    $GlobeMemMB  = $envVars['VM_GLOBE_MEMORY_MB']
+    $CustomLoc   = $envVars['AZURE_CUSTOM_LOCATION_NAME']
+
+    $vmParams = @(
+        @{ Name = $GeoVmName;   VCPU = $GeoVCPU;   MemMB = $GeoMemMB;   Desc = "GeoServer (Demo 2)" },
+        @{ Name = $GlobeVmName; VCPU = $GlobeVCPU;  MemMB = $GlobeMemMB; Desc = "CesiumJS Globe (Demo 3)" }
+    )
+
+    foreach ($vm in $vmParams) {
+        $exists = az stack-hci-vm show --name $vm.Name --resource-group $ResourceGroup --query name -o tsv 2>$null
+        if ($exists) {
+            Write-Host "  [OK] VM '$($vm.Name)' already exists - $($vm.Desc)" -ForegroundColor Green
+        } else {
+            Write-Host "  Creating VM: $($vm.Name) ($($vm.Desc))..." -ForegroundColor Gray
+            az stack-hci-vm create `
+                --name $vm.Name `
+                --resource-group $ResourceGroup `
+                --custom-location $CustomLoc `
+                --image $GalleryImageId `
+                --admin-username $AdminUser `
+                --ssh-key-values $SshKeyPath `
+                --hardware-profile memory-mb="$($vm.MemMB)" processors="$($vm.VCPU)" `
+                --nic-id $LogicalNetworkId `
+                --output none
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [WARN] VM '$($vm.Name)' deployment may have failed - check Azure Portal" -ForegroundColor Yellow
+            } else {
+                Write-Host "  [OK] VM '$($vm.Name)' created" -ForegroundColor Green
+            }
+        }
+    }
 }
 
 # Step 3: Create ACR if needed, then build container images
