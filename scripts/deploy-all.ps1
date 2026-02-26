@@ -136,16 +136,37 @@ if (-not (Test-Path $SshKeyPath)) {
         if ($exists) {
             Write-Host "  [OK] VM '$($vm.Name)' already exists - $($vm.Desc)" -ForegroundColor Green
         } else {
+            # Create NIC for the VM
+            $nicName = "$($vm.Name)-nic"
+            $nicExists = az stack-hci-vm network nic show --name $nicName --resource-group $ResourceGroup --query name -o tsv 2>$null
+            if (-not $nicExists) {
+                Write-Host "  Creating NIC: $nicName..." -ForegroundColor Gray
+                az stack-hci-vm network nic create `
+                    --name $nicName `
+                    --resource-group $ResourceGroup `
+                    --custom-location $CustomLocationId `
+                    --subnet-id $LogicalNetworkId `
+                    --output none
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "  [WARN] NIC '$nicName' creation failed" -ForegroundColor Yellow
+                    continue
+                }
+            }
+
+            # Create the VM
             Write-Host "  Creating VM: $($vm.Name) ($($vm.Desc))..." -ForegroundColor Gray
             az stack-hci-vm create `
                 --name $vm.Name `
                 --resource-group $ResourceGroup `
-                --custom-location $CustomLoc `
+                --custom-location $CustomLocationId `
                 --image $GalleryImageId `
                 --admin-username $AdminUser `
+                --authentication-type ssh `
                 --ssh-key-values $SshKeyPath `
-                --hardware-profile memory-mb="$($vm.MemMB)" processors="$($vm.VCPU)" `
-                --nic-id $LogicalNetworkId `
+                --nics $nicName `
+                --computer-name $vm.Name `
+                --size Default `
+                --os-type linux `
                 --output none
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "  [WARN] VM '$($vm.Name)' deployment may have failed - check Azure Portal" -ForegroundColor Yellow
