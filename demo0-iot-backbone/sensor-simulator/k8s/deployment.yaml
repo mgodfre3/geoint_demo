@@ -1,0 +1,72 @@
+# Deployment: sensor-simulator
+# Publishes synthetic MQTT sensor telemetry to the IoT Operations broker.
+# All secrets are sourced from the 'sensor-simulator-secret' K8s Secret
+# (created by deploy-iot-backbone.ps1 from the .env file).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensor-simulator
+  namespace: azure-iot-operations
+  labels:
+    app: sensor-simulator
+    demo: geoint-iot-backbone
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensor-simulator
+  template:
+    metadata:
+      labels:
+        app: sensor-simulator
+        demo: geoint-iot-backbone
+    spec:
+      # Run as non-root (matches Dockerfile user)
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: simulator
+          # Image is built and pushed by deploy-iot-backbone.ps1
+          # Replace ACR_NAME with the value from your .env file.
+          image: ${ACR_NAME}.azurecr.io/geoint/sensor-simulator:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            # Scenario selection (SCENARIO_FILE, SENSOR_COUNT, LOOP)
+            - configMapRef:
+                name: sensor-simulator-config
+          env:
+            # MQTT broker connectivity — sourced from Secret
+            - name: MQTT_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: sensor-simulator-secret
+                  key: MQTT_HOST
+            - name: MQTT_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: sensor-simulator-secret
+                  key: MQTT_PORT
+            - name: MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sensor-simulator-secret
+                  key: MQTT_USERNAME
+            - name: MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sensor-simulator-secret
+                  key: MQTT_PASSWORD
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+      restartPolicy: Always

@@ -1,0 +1,54 @@
+# Azure IoT Operations — Asset Definition: Weather Station
+#
+# Represents a simulated weather station sensor as an AIO Asset resource.
+# The asset declares datasets whose datapoints map to MQTT topics published
+# by the sensor simulator.
+#
+# Apply with: kubectl apply -f weather-station.yaml
+
+apiVersion: deviceregistry.microsoft.com/v1beta1
+kind: Asset
+metadata:
+  name: weather-station-001
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+    sensor-type: weather-station
+spec:
+  displayName: "GEOINT Weather Station 001"
+  description: "Simulated meteorological sensor providing temperature, humidity, wind speed, and barometric pressure data."
+  assetEndpointProfileRef:
+    name: geoint-mqtt-endpoint
+  manufacturer: "SimSensors Inc."
+  manufacturerUri: "https://example.com/simsensors"
+  model: "WX-3000"
+  productCode: "WX3000-SIM"
+  hardwareRevision: "1.0"
+  softwareRevision: "2.4.1"
+  serialNumber: "WX3000-001"
+  documentationUri: "https://example.com/simsensors/wx3000/docs"
+  defaultDatasetsConfiguration: '{"publishingInterval": 3000, "samplingInterval": 500, "queueSize": 4}'
+  datasets:
+    - name: telemetry
+      topic:
+        path: "geoint/sensors/weather-station/weather-001/telemetry"
+        retain: never
+      dataPoints:
+        - name: temperature_c
+          dataSource: "$.reading.temperature_c"
+          observabilityMode: gauge
+        - name: humidity_pct
+          dataSource: "$.reading.humidity_pct"
+          observabilityMode: gauge
+        - name: wind_speed_kph
+          dataSource: "$.reading.wind_speed_kph"
+          observabilityMode: gauge
+        - name: pressure_hpa
+          dataSource: "$.reading.pressure_hpa"
+          observabilityMode: gauge
+        - name: grid_ref
+          dataSource: "$.grid_ref"
+          observabilityMode: none
+        - name: is_alert
+          dataSource: "$.alert"
+          observabilityMode: none

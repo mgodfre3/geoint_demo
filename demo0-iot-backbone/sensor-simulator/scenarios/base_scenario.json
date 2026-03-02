@@ -1,0 +1,51 @@
+{
+  "name": "Base Scenario",
+  "description": "Default looping scenario — baseline telemetry from a mixed sensor fleet.",
+  "anomaly_probability": 0.04,
+  "publish_interval_s": 3.0,
+  "heartbeat_interval_s": 30.0,
+  "sensors": [
+    {
+      "sensor_id": "weather-001",
+      "sensor_type": "weather-station",
+      "grid_ref": "38TLP234567",
+      "lat": 38.8954,
+      "lon": -77.0365
+    },
+    {
+      "sensor_id": "weather-002",
+      "sensor_type": "weather-station",
+      "grid_ref": "38TLP312489",
+      "lat": 38.9120,
+      "lon": -77.0512
+    },
+    {
+      "sensor_id": "seismic-001",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP234567",
+      "lat": 38.8954,
+      "lon": -77.0365
+    },
+    {
+      "sensor_id": "seismic-002",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP198420",
+      "lat": 38.8720,
+      "lon": -77.0198
+    },
+    {
+      "sensor_id": "rf-001",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP276531",
+      "lat": 38.9001,
+      "lon": -77.0276
+    },
+    {
+      "sensor_id": "rf-002",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP310502",
+      "lat": 38.9215,
+      "lon": -77.0310
+    }
+  ]
+}

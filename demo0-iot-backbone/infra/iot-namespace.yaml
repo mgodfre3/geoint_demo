@@ -1,0 +1,86 @@
+# Kubernetes Namespace + RBAC for Azure IoT Operations
+# Creates the 'azure-iot-operations' namespace and grants the minimum
+# RBAC permissions needed for the demo workloads.
+#
+# Applied by deploy-iot-backbone.ps1 before any other resources.
+
+# ── Namespace ────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+    # Label required by Azure IoT Operations extension
+    kubernetes.azure.com/managedby: iotoperations
+
+---
+# ── ServiceAccount: simulator workload identity ──────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sensor-simulator-sa
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+
+---
+# ── ServiceAccount: alert-processor workload identity ────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alert-processor-sa
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+
+---
+# ── Role: minimal permissions for demo workloads ─────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: geoint-demo-workload-role
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+rules:
+  # Workloads need to read their own ConfigMaps and Secrets
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ── RoleBinding: simulator ────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sensor-simulator-rb
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+subjects:
+  - kind: ServiceAccount
+    name: sensor-simulator-sa
+    namespace: azure-iot-operations
+roleRef:
+  kind: Role
+  name: geoint-demo-workload-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ── RoleBinding: alert-processor ─────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alert-processor-rb
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+subjects:
+  - kind: ServiceAccount
+    name: alert-processor-sa
+    namespace: azure-iot-operations
+roleRef:
+  kind: Role
+  name: geoint-demo-workload-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,94 @@
+# Deployment: alert-processor
+# FastAPI service that receives anomaly alerts from the IoT Operations
+# data pipeline and dispatches jobs to the demo1 vision pipeline.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-processor
+  namespace: azure-iot-operations
+  labels:
+    app: alert-processor
+    demo: geoint-iot-backbone
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-processor
+  template:
+    metadata:
+      labels:
+        app: alert-processor
+        demo: geoint-iot-backbone
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: processor
+          image: ${ACR_NAME}.azurecr.io/geoint/alert-processor:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: VISION_PIPELINE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: alert-processor-config
+                  key: VISION_PIPELINE_URL
+            - name: ALERT_PROCESSOR_PORT
+              value: "8080"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+# ConfigMap for alert-processor runtime configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-processor-config
+  namespace: azure-iot-operations
+  labels:
+    app: alert-processor
+    demo: geoint-iot-backbone
+data:
+  VISION_PIPELINE_URL: "http://demo1-vision-service:8080/jobs"
+---
+# Service: exposes alert-processor within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-processor
+  namespace: azure-iot-operations
+  labels:
+    app: alert-processor
+    demo: geoint-iot-backbone
+spec:
+  selector:
+    app: alert-processor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

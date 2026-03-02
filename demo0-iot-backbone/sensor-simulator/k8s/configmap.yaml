@@ -1,0 +1,22 @@
+# ConfigMap: sensor-simulator scenario selection
+# Consumed by the simulator Deployment as environment variables.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensor-simulator-config
+  namespace: azure-iot-operations
+  labels:
+    app: sensor-simulator
+    demo: geoint-iot-backbone
+data:
+  # Path inside the container to the scenario JSON file.
+  # Valid values: scenarios/base_scenario.json | scenarios/convoy_scenario.json
+  #               scenarios/anomaly_scenario.json
+  SCENARIO_FILE: "scenarios/base_scenario.json"
+
+  # Number of sensor instances to simulate.
+  # If larger than the scenario file's sensor list, sensors are duplicated.
+  SENSOR_COUNT: "12"
+
+  # Whether the simulator loops indefinitely (set to "false" for one-shot runs)
+  LOOP: "true"

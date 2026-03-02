@@ -1,0 +1,58 @@
+# Azure IoT Operations — Asset Definition: Seismic Sensor
+#
+# Represents a simulated seismic sensor as an AIO Asset resource.
+# Datapoints map to MQTT topics published by the sensor simulator.
+#
+# Apply with: kubectl apply -f seismic-sensor.yaml
+
+apiVersion: deviceregistry.microsoft.com/v1beta1
+kind: Asset
+metadata:
+  name: seismic-sensor-001
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+    sensor-type: seismic
+spec:
+  displayName: "GEOINT Seismic Sensor 001"
+  description: "Simulated seismic sensor detecting ground motion magnitude, depth, and frequency — used to trigger anomaly alerts."
+  assetEndpointProfileRef:
+    name: geoint-mqtt-endpoint
+  manufacturer: "SimSensors Inc."
+  manufacturerUri: "https://example.com/simsensors"
+  model: "GS-500"
+  productCode: "GS500-SIM"
+  hardwareRevision: "2.1"
+  softwareRevision: "3.0.0"
+  serialNumber: "GS500-001"
+  documentationUri: "https://example.com/simsensors/gs500/docs"
+  defaultDatasetsConfiguration: '{"publishingInterval": 2000, "samplingInterval": 250, "queueSize": 8}'
+  datasets:
+    - name: telemetry
+      topic:
+        path: "geoint/sensors/seismic/seismic-001/telemetry"
+        retain: never
+      dataPoints:
+        - name: magnitude
+          dataSource: "$.reading.magnitude"
+          observabilityMode: gauge
+        - name: depth_m
+          dataSource: "$.reading.depth_m"
+          observabilityMode: gauge
+        - name: frequency_hz
+          dataSource: "$.reading.frequency_hz"
+          observabilityMode: gauge
+        - name: grid_ref
+          dataSource: "$.grid_ref"
+          observabilityMode: none
+        - name: is_alert
+          dataSource: "$.alert"
+          observabilityMode: none
+    - name: alerts
+      topic:
+        path: "geoint/sensors/seismic/seismic-001/alert"
+        retain: never
+      dataPoints:
+        - name: alert_payload
+          dataSource: "$"
+          observabilityMode: none

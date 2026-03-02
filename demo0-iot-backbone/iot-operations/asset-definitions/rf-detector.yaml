@@ -1,0 +1,61 @@
+# Azure IoT Operations — Asset Definition: RF Detector
+#
+# Represents a simulated RF signal detector as an AIO Asset resource.
+# Datapoints map to MQTT topics published by the sensor simulator.
+#
+# Apply with: kubectl apply -f rf-detector.yaml
+
+apiVersion: deviceregistry.microsoft.com/v1beta1
+kind: Asset
+metadata:
+  name: rf-detector-001
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+    sensor-type: rf-detector
+spec:
+  displayName: "GEOINT RF Signal Detector 001"
+  description: "Simulated RF spectrum monitoring sensor detecting frequency, power level, and modulation — high power events trigger anomaly alerts."
+  assetEndpointProfileRef:
+    name: geoint-mqtt-endpoint
+  manufacturer: "SimSensors Inc."
+  manufacturerUri: "https://example.com/simsensors"
+  model: "RF-7200"
+  productCode: "RF7200-SIM"
+  hardwareRevision: "1.3"
+  softwareRevision: "1.8.2"
+  serialNumber: "RF7200-001"
+  documentationUri: "https://example.com/simsensors/rf7200/docs"
+  defaultDatasetsConfiguration: '{"publishingInterval": 2000, "samplingInterval": 250, "queueSize": 8}'
+  datasets:
+    - name: telemetry
+      topic:
+        path: "geoint/sensors/rf-detector/rf-001/telemetry"
+        retain: never
+      dataPoints:
+        - name: frequency_mhz
+          dataSource: "$.reading.frequency_mhz"
+          observabilityMode: gauge
+        - name: power_dbm
+          dataSource: "$.reading.power_dbm"
+          observabilityMode: gauge
+        - name: bandwidth_khz
+          dataSource: "$.reading.bandwidth_khz"
+          observabilityMode: gauge
+        - name: modulation
+          dataSource: "$.reading.modulation"
+          observabilityMode: none
+        - name: grid_ref
+          dataSource: "$.grid_ref"
+          observabilityMode: none
+        - name: is_alert
+          dataSource: "$.alert"
+          observabilityMode: none
+    - name: alerts
+      topic:
+        path: "geoint/sensors/rf-detector/rf-001/alert"
+        retain: never
+      dataPoints:
+        - name: alert_payload
+          dataSource: "$"
+          observabilityMode: none

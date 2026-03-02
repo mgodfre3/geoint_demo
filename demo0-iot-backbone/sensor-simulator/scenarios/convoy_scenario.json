@@ -1,0 +1,51 @@
+{
+  "name": "Convoy Scenario",
+  "description": "Simulates a moving ground vehicle convoy — seismic and RF sensors track movement across grid references, with elevated anomaly probability.",
+  "anomaly_probability": 0.12,
+  "publish_interval_s": 2.0,
+  "heartbeat_interval_s": 20.0,
+  "sensors": [
+    {
+      "sensor_id": "seismic-convoy-001",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP100300",
+      "lat": 38.8600,
+      "lon": -77.0100
+    },
+    {
+      "sensor_id": "seismic-convoy-002",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP150350",
+      "lat": 38.8650,
+      "lon": -77.0150
+    },
+    {
+      "sensor_id": "seismic-convoy-003",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP200400",
+      "lat": 38.8700,
+      "lon": -77.0200
+    },
+    {
+      "sensor_id": "rf-convoy-001",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP100300",
+      "lat": 38.8600,
+      "lon": -77.0100
+    },
+    {
+      "sensor_id": "rf-convoy-002",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP200400",
+      "lat": 38.8700,
+      "lon": -77.0200
+    },
+    {
+      "sensor_id": "weather-convoy-001",
+      "sensor_type": "weather-station",
+      "grid_ref": "38TLP150350",
+      "lat": 38.8650,
+      "lon": -77.0150
+    }
+  ]
+}
