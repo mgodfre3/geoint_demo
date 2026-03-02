@@ -1,0 +1,51 @@
+{
+  "name": "Anomaly Scenario",
+  "description": "High-frequency anomaly injection scenario — RF jamming and seismic spike events designed to demonstrate the full alert-to-vision-pipeline trigger flow.",
+  "anomaly_probability": 0.45,
+  "publish_interval_s": 1.5,
+  "heartbeat_interval_s": 15.0,
+  "sensors": [
+    {
+      "sensor_id": "seismic-anom-001",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP500700",
+      "lat": 38.9500,
+      "lon": -77.0500
+    },
+    {
+      "sensor_id": "seismic-anom-002",
+      "sensor_type": "seismic",
+      "grid_ref": "38TLP510710",
+      "lat": 38.9510,
+      "lon": -77.0510
+    },
+    {
+      "sensor_id": "rf-anom-001",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP500700",
+      "lat": 38.9500,
+      "lon": -77.0500
+    },
+    {
+      "sensor_id": "rf-anom-002",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP520720",
+      "lat": 38.9520,
+      "lon": -77.0520
+    },
+    {
+      "sensor_id": "rf-anom-003",
+      "sensor_type": "rf-detector",
+      "grid_ref": "38TLP480680",
+      "lat": 38.9480,
+      "lon": -77.0480
+    },
+    {
+      "sensor_id": "weather-anom-001",
+      "sensor_type": "weather-station",
+      "grid_ref": "38TLP500700",
+      "lat": 38.9500,
+      "lon": -77.0500
+    }
+  ]
+}

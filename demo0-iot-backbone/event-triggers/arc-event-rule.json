@@ -1,0 +1,35 @@
+{
+  "id": "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.EventGrid/systemTopics/geoint-iot-alerts",
+  "name": "geoint-iot-alert-subscription",
+  "type": "Microsoft.EventGrid/eventSubscriptions",
+  "properties": {
+    "topic": "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.EventGrid/systemTopics/geoint-iot-alerts",
+    "destination": {
+      "endpointType": "WebHook",
+      "properties": {
+        "endpointUrl": "http://${AKS_WORKER_IP}:${ALERT_PROCESSOR_PORT}/trigger",
+        "maxEventsPerBatch": 1,
+        "preferredBatchSizeInKilobytes": 64
+      }
+    },
+    "filter": {
+      "includedEventTypes": [
+        "Microsoft.IoTOperations.Telemetry.AlertRaised"
+      ],
+      "advancedFilters": [
+        {
+          "operatorType": "BoolEquals",
+          "key": "data.alert",
+          "value": true
+        }
+      ]
+    },
+    "labels": ["geoint", "iot-backbone", "demo0"],
+    "eventDeliverySchema": "CloudEventSchemaV1_0",
+    "retryPolicy": {
+      "maxDeliveryAttempts": 5,
+      "eventTimeToLiveInMinutes": 60
+    }
+  },
+  "_comment": "Replace ${AZURE_SUBSCRIPTION_ID}, ${AZURE_RESOURCE_GROUP}, ${AKS_WORKER_IP}, and ${ALERT_PROCESSOR_PORT} with values from your .env file before applying. Deploy with: az eventgrid event-subscription create --name geoint-iot-alert-subscription --source-resource-id <topicId> --endpoint <processorUrl>"
+}

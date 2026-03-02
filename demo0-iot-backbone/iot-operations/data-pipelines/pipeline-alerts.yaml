@@ -1,0 +1,49 @@
+# Azure IoT Operations — Data Pipeline: Anomaly Alerts → Alert Processor
+#
+# Source  : MQTT topic  geoint/sensors/+/+/alert
+# Filter  : Only forward messages where alert == true
+# Destination: HTTP POST to alert-processor service
+#              (http://alert-processor:8080/trigger)
+#
+# Apply with: kubectl apply -f pipeline-alerts.yaml
+
+apiVersion: dataflow.iotoperations.azure.com/v1beta1
+kind: DataFlow
+metadata:
+  name: sensor-alerts-to-processor
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+spec:
+  # ── Source: subscribe to all sensor alert topics ─────────────────
+  sources:
+    - sourceType: MqttBroker
+      mqttBrokerSettings:
+        brokerRef: geoint-broker
+        # Alert topics — published only when sensor.alert == true
+        topics:
+          - geoint/sensors/+/+/alert
+        consumerGroupId: pipeline-alerts-group
+
+  # ── Transformation: filter and pass-through ──────────────────────
+  operations:
+    - operationType: BuiltInTransformation
+      builtInTransformationSettings:
+        # Pass all fields through unchanged
+        map:
+          - inputs: ["*"]
+            output: "*"
+        # Filter: only forward messages where the alert field is true.
+        # This guards against any stray non-alert messages on these topics.
+        filter: "$source.alert == true"
+
+  # ── Destination: alert-processor FastAPI service ─────────────────
+  destinations:
+    - destinationType: Http
+      httpSettings:
+        # alert-processor runs in the same namespace — internal DNS resolves it.
+        url: "http://alert-processor.azure-iot-operations.svc.cluster.local:8080/trigger"
+        method: POST
+        contentType: application/json
+        authentication:
+          type: None   # Intra-cluster traffic — no auth for demo
