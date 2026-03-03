@@ -1,8 +1,10 @@
 services:
   globe-server:
-    build: ./server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     ports:
-      - "8085:8085"
-    volumes:
-      - ./client:/app/public:ro
+      - "3000:3000"
+    environment:
+      - ALERT_PROCESSOR_URL=http://alert-processor:8080
     restart: unless-stopped

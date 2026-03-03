@@ -5,9 +5,11 @@ FastAPI service that receives anomaly alert payloads from the Azure IoT
 Operations data pipeline and triggers downstream vision pipeline jobs.
 
 Endpoints:
-    POST /trigger  — Receive alert payload, dispatch vision pipeline job.
-    GET  /health   — Liveness / readiness probe.
-    GET  /alerts   — Return last 50 alerts (in-memory ring buffer).
+    POST /trigger       — Receive alert payload, dispatch vision pipeline job.
+    GET  /health        — Liveness / readiness probe.
+    GET  /alerts        — Return last 50 alerts (in-memory ring buffer).
+    GET  /alerts/stream — Server-Sent Events stream; push each new alert to
+                          all connected subscribers in real time.
 
 Environment Variables:
     VISION_PIPELINE_URL  URL for demo1 vision pipeline job API
@@ -17,6 +19,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -24,11 +27,11 @@ import sys
 import uuid
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Deque
+from typing import Any, AsyncGenerator, Deque
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -59,6 +62,9 @@ PORT: int = int(os.environ.get("ALERT_PROCESSOR_PORT", "8080"))
 
 # In-memory ring buffer — last 50 alerts
 _alert_buffer: Deque[dict[str, Any]] = deque(maxlen=50)
+
+# SSE subscriber queues — one asyncio.Queue per connected client
+_sse_subscribers: list[asyncio.Queue[dict[str, Any]]] = []
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -105,6 +111,9 @@ async def trigger(payload: AlertPayload) -> TriggerResponse:
         **payload.model_dump(),
     }
     _alert_buffer.append(alert_record)
+    # Notify all SSE subscribers of the new alert
+    for queue in _sse_subscribers.copy():
+        await queue.put(alert_record)
     _log(
         "info",
         "Alert received",
@@ -151,6 +160,44 @@ async def health() -> JSONResponse:
 async def list_alerts() -> JSONResponse:
     """Return the last 50 alerts from the in-memory ring buffer."""
     return JSONResponse(list(_alert_buffer))
+
+
+@app.get("/alerts/stream")
+async def alerts_stream(request: Request) -> StreamingResponse:
+    """
+    Server-Sent Events endpoint.  Each connected client receives a push
+    event every time a new alert is appended to ``_alert_buffer``.
+    Clients subscribe once and the connection stays open until they
+    disconnect or the server shuts down.
+
+    Event format::
+
+        event: alert
+        data: {"job_id": "...", "sensor_id": "...", ...}
+    """
+    queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    _sse_subscribers.append(queue)
+    _log("info", "SSE client connected", subscriber_count=len(_sse_subscribers))
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            while not await request.is_disconnected():
+                try:
+                    alert = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    data = json.dumps(alert)
+                    yield f"event: alert\ndata: {data}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a keepalive comment so the connection is not dropped
+                    yield ": keepalive\n\n"
+        finally:
+            _sse_subscribers.remove(queue)
+            _log(
+                "info",
+                "SSE client disconnected",
+                subscriber_count=len(_sse_subscribers),
+            )
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------

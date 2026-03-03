@@ -217,3 +217,66 @@ See [`dashboards/README.md`](dashboards/README.md) for full instructions.
 
 This removes all deployed resources in reverse order:
 workloads → pipelines → assets → MQTT broker → AIO extension → namespace.
+
+---
+
+## 📺 Real-Time Visualization
+
+Once the IoT backbone is running, alerts flow automatically to three visual surfaces.
+
+### Data flow
+
+```
+sensor-simulator
+       │  MQTT  geoint/sensors/{type}/{id}/alert
+       ▼
+Azure IoT Operations (MQTT Broker + pipeline-alerts DataFlow)
+       │  HTTP POST /trigger
+       ▼
+alert-processor  ──── GET /alerts        ────▶  demo2 MapLibre map   (polls every 5 s)
+       │              GET /alerts/stream  ────▶  demo3 CesiumJS globe (SSE push)
+       │                                         (via tactical-globe-server proxy)
+       ▼
+demo1-vision-service  (imagery job dispatch)
+```
+
+### Visualization surfaces
+
+| Surface | Service | Default URL | Update method |
+|---------|---------|-------------|---------------|
+| **Grafana** | `monitoring` namespace | `http://<node-ip>:3000` | Prometheus + Loki scrape |
+| **3D CesiumJS Globe** | `tactical-globe` svc, port 3000 | `http://tactical-globe:3000` | SSE push (real-time) |
+| **2D MapLibre Map** | `maplibre-ui` svc, port 8080 | `http://maplibre-ui:8080` | HTTP poll every 5 s |
+
+### Globe (demo3)
+
+The `tactical-globe-server` Python/FastAPI service proxies the SSE stream from
+`alert-processor` to browser clients, avoiding cross-origin restrictions.
+
+- 🔴 **Red pulsing marker** — alert received < 30 seconds ago
+- 🟡 **Yellow static marker** — alert 30 s – 5 min old; removed after 5 min
+- Camera auto-flies to each new alert location (kiosk mode)
+- Add `?kiosk=0` to the URL to disable camera automation
+
+### Map (demo2)
+
+The `maplibre-ui` Nginx container polls `alert-processor:8080/alerts` via an
+internal nginx reverse-proxy, so the browser never makes cross-origin calls.
+
+- 🟢 **Green circle** — sensor reporting; no active alert
+- 🔴 **Red circle** — sensor in alert state
+- Click any circle for a sensor detail popup
+- Side panel shows the last 10 alerts; click an entry to fly the map there
+
+### Port-forward for local development
+
+```bash
+# Alert processor
+kubectl port-forward svc/alert-processor 8080:8080 -n azure-iot-operations
+
+# 3D Globe
+kubectl port-forward svc/tactical-globe 3000:3000 -n azure-iot-operations
+
+# 2D Map
+kubectl port-forward svc/maplibre-ui 8081:8080 -n azure-iot-operations
+```

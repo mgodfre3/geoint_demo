@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEOINT Live Sensor Map — Azure Local</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; }
+
+        /* ── Header ────────────────────────────────────────────────────────── */
+        #header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 10px 20px; display: flex; align-items: center; gap: 14px;
+            border-bottom: 2px solid #0078d4;
+        }
+        #header h1 { font-size: 16px; font-weight: 600; color: #fff; }
+        .badge {
+            background: #0078d4; color: #fff; padding: 3px 10px;
+            border-radius: 12px; font-size: 11px; font-weight: 500;
+        }
+        #header .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #888; margin-left: auto; }
+        #header .status-dot.live { background: #00e676; box-shadow: 0 0 6px #00e67699; }
+
+        /* ── Map ────────────────────────────────────────────────────────────── */
+        #map {
+            position: fixed; top: 48px; left: 0; bottom: 0; right: 320px;
+        }
+
+        /* ── Side panel ─────────────────────────────────────────────────────── */
+        #panel {
+            position: fixed; top: 48px; right: 0; bottom: 0; width: 320px;
+            background: #0d0d1a; border-left: 1px solid #1e2a3a;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        #panel-header {
+            padding: 12px 16px; border-bottom: 1px solid #1e2a3a;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #0078d4;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #panel-header span { font-size: 11px; color: #555; }
+        #alert-feed {
+            flex: 1; overflow-y: auto; padding: 8px;
+        }
+        #alert-feed::-webkit-scrollbar { width: 4px; }
+        #alert-feed::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 2px; }
+
+        /* Alert feed entries */
+        .feed-entry {
+            background: #111827; border: 1px solid #1e2a3a; border-radius: 6px;
+            padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            animation: slideDown 0.25s ease-out;
+        }
+        .feed-entry:hover { border-color: #0078d4; background: #141e30; }
+        .feed-entry.alert-state { border-left: 3px solid #ff5252; }
+        .feed-entry.normal-state { border-left: 3px solid #00e676; }
+        .feed-entry .entry-sensor { font-size: 12px; font-weight: 600; color: #e0e0e0; }
+        .feed-entry .entry-type { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .feed-entry .entry-grid { font-size: 11px; color: #0078d4; margin-top: 2px; }
+        .feed-entry .entry-time { font-size: 10px; color: #555; margin-top: 4px; }
+
+        @keyframes slideDown {
+            from { transform: translateY(-10px); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
+        }
+
+        /* Empty state */
+        #empty-state {
+            padding: 24px 16px; text-align: center; color: #444; font-size: 13px;
+        }
+
+        /* MapLibre popup */
+        .maplibregl-popup-content {
+            background: #1a1a2e; color: #e0e0e0; border: 1px solid #0078d4;
+            border-radius: 8px; font-size: 13px; padding: 12px; max-width: 220px;
+        }
+        .maplibregl-popup-content strong { color: #0078d4; display: block; margin-bottom: 6px; }
+        .maplibregl-popup-content table { border-collapse: collapse; width: 100%; }
+        .maplibregl-popup-content td { padding: 3px 0; vertical-align: top; }
+        .maplibregl-popup-content td:first-child { color: #888; width: 90px; }
+        .maplibregl-popup-tip { border-top-color: #1a1a2e !important; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>📡 GEOINT Live Sensor Map</h1>
+        <span class="badge">Azure Local</span>
+        <span class="badge" id="sensor-count-badge">0 sensors</span>
+        <span class="badge" id="alert-count-badge" style="background:#ff5252;">0 alerts</span>
+        <div class="status-dot" id="status-dot" title="Data feed status"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="panel">
+        <div id="panel-header">
+            Live Alert Feed
+            <span id="last-updated">—</span>
+        </div>
+        <div id="alert-feed">
+            <div id="empty-state">Awaiting sensor data...</div>
+        </div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------------------------
+        // Configuration
+        // ---------------------------------------------------------------------------
+        // URL of the alert processor.  In production this is served via the
+        // tactical-globe server proxy (/api/alerts) or accessed directly in the
+        // same namespace.  Override via ?api= query param for local dev.
+        const params = new URLSearchParams(location.search);
+        const ALERT_API = params.get('api') || '/api/alerts';
+        const POLL_INTERVAL_MS = 5000;
+
+        // ---------------------------------------------------------------------------
+        // MapLibre initialisation — dark tactical basemap
+        // ---------------------------------------------------------------------------
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    'carto-dark': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors © CARTO',
+                    },
+                },
+                layers: [{ id: 'basemap', type: 'raster', source: 'carto-dark' }],
+            },
+            center: [-77.0369, 38.8951],
+            zoom: 10,
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), 'bottom-left');
+
+        // ---------------------------------------------------------------------------
+        // Sensor GeoJSON source + layers
+        // ---------------------------------------------------------------------------
+        map.on('load', () => {
+            map.addSource('sensors', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] },
+            });
+
+            // Outer glow for alert-state sensors
+            map.addLayer({
+                id: 'sensors-alert-glow',
+                type: 'circle',
+                source: 'sensors',
+                filter: ['==', ['get', 'alert'], true],
+                paint: {
+                    'circle-radius': 20,
+                    'circle-color': '#ff5252',
+                    'circle-opacity': 0.2,
+                    'circle-blur': 1,
+                },
+            });
+
+            // Main sensor circles — red = alert, green = normal
+            map.addLayer({
+                id: 'sensors-circles',
+                type: 'circle',
+                source: 'sensors',
+                paint: {
+                    'circle-radius': 9,
+                    'circle-color': [
+                        'case', ['==', ['get', 'alert'], true], '#ff5252', '#00e676',
+                    ],
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff',
+                    'circle-opacity': 0.9,
+                },
+            });
+
+            // Sensor ID labels
+            map.addLayer({
+                id: 'sensors-labels',
+                type: 'symbol',
+                source: 'sensors',
+                layout: {
+                    'text-field': ['get', 'sensor_id'],
+                    'text-font': ['Open Sans Regular'],
+                    'text-size': 10,
+                    'text-offset': [0, 1.4],
+                    'text-anchor': 'top',
+                },
+                paint: {
+                    'text-color': '#ccc',
+                    'text-halo-color': '#000',
+                    'text-halo-width': 1,
+                },
+            });
+
+            // Click popup
+            map.on('click', 'sensors-circles', (e) => {
+                const p = e.features[0].properties;
+                let readingHtml = '';
+                try {
+                    const r = JSON.parse(p.reading || '{}');
+                    readingHtml = Object.entries(r)
+                        .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+                        .join('');
+                } catch (_) { readingHtml = '<tr><td colspan="2">—</td></tr>'; }
+
+                new maplibregl.Popup({ offset: 12 })
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <strong>${p.sensor_id}</strong>
+                        <table>
+                            <tr><td>Type</td><td>${p.sensor_type}</td></tr>
+                            <tr><td>Grid Ref</td><td>${p.grid_ref}</td></tr>
+                            <tr><td>State</td><td style="color:${p.alert ? '#ff5252' : '#00e676'}">${p.alert ? '🔴 ALERT' : '🟢 Normal'}</td></tr>
+                            ${readingHtml}
+                            <tr><td>Timestamp</td><td>${new Date(p.timestamp).toLocaleTimeString()}</td></tr>
+                        </table>`)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', 'sensors-circles', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'sensors-circles', () => map.getCanvas().style.cursor = '');
+
+            // Start polling once the map is ready
+            fetchAlerts();
+            setInterval(fetchAlerts, POLL_INTERVAL_MS);
+        });
+
+        // ---------------------------------------------------------------------------
+        // Data fetching — poll alert processor every 5 seconds
+        // ---------------------------------------------------------------------------
+        let lastAlerts = [];
+        let feedEntries = []; // newest-first array for the side panel
+
+        /** Stable unique key for deduplicating alert records. */
+        function alertKey(a) {
+            return a.job_id || `${a.sensor_id}|${a.timestamp}`;
+        }
+
+        async function fetchAlerts() {
+            try {
+                const res = await fetch(ALERT_API);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const alerts = await res.json();
+                updateMap(alerts);
+                updateFeed(alerts);
+                setLiveStatus(true);
+            } catch (e) {
+                setLiveStatus(false);
+            }
+        }
+
+        /**
+         * Build a GeoJSON FeatureCollection from the latest alerts array and
+         * update the map source.  Each sensor appears once (deduplicated by
+         * sensor_id, keeping the most recent record).
+         */
+        function updateMap(alerts) {
+            // Deduplicate: keep newest record per sensor_id
+            const bySensor = {};
+            alerts.forEach(a => {
+                if (!bySensor[a.sensor_id] ||
+                    new Date(a.timestamp) > new Date(bySensor[a.sensor_id].timestamp)) {
+                    bySensor[a.sensor_id] = a;
+                }
+            });
+
+            const features = Object.values(bySensor).map(a => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [parseFloat(a.lon), parseFloat(a.lat)],
+                },
+                properties: {
+                    sensor_id:   a.sensor_id,
+                    sensor_type: a.sensor_type,
+                    grid_ref:    a.grid_ref,
+                    alert:       a.alert === true,
+                    reading:     JSON.stringify(a.reading || {}),
+                    timestamp:   a.timestamp,
+                },
+            }));
+
+            if (map.getSource('sensors')) {
+                map.getSource('sensors').setData({ type: 'FeatureCollection', features });
+            }
+
+            // Update header badges
+            const alertCount = features.filter(f => f.properties.alert).length;
+            document.getElementById('sensor-count-badge').textContent = `${features.length} sensors`;
+            document.getElementById('alert-count-badge').textContent = `${alertCount} alerts`;
+
+            lastAlerts = alerts;
+        }
+
+        /**
+         * Merge new alerts into the side panel feed.  New entries that were
+         * not present in the previous poll slide in from the top (up to 10 shown).
+         */
+        function updateFeed(alerts) {
+            if (!alerts.length) return;
+
+            // Identify alerts that are newer than anything we've seen
+            const prevIds = new Set(feedEntries.map(alertKey));
+            const newAlerts = alerts.filter(a => !prevIds.has(alertKey(a)));
+
+            if (newAlerts.length === 0) return;
+
+            // Prepend new alerts
+            feedEntries = [...newAlerts, ...feedEntries].slice(0, 10);
+
+            // Re-render feed
+            const feed = document.getElementById('alert-feed');
+            const empty = document.getElementById('empty-state');
+            if (empty) empty.remove();
+
+            // Clear and rebuild (simple approach for ≤10 items)
+            feed.innerHTML = '';
+            feedEntries.forEach(a => {
+                const el = document.createElement('div');
+                el.className = `feed-entry ${a.alert ? 'alert-state' : 'normal-state'}`;
+                el.innerHTML = `
+                    <div class="entry-sensor">${a.sensor_id}</div>
+                    <div class="entry-type">${a.sensor_type}</div>
+                    <div class="entry-grid">${a.grid_ref}</div>
+                    <div class="entry-time">${new Date(a.timestamp).toLocaleString()}</div>`;
+                // Fly map to this alert on click
+                el.addEventListener('click', () => {
+                    map.flyTo({
+                        center: [parseFloat(a.lon), parseFloat(a.lat)],
+                        zoom: 14,
+                        speed: 1.5,
+                    });
+                });
+                feed.appendChild(el);
+            });
+
+            document.getElementById('last-updated').textContent =
+                `updated ${new Date().toLocaleTimeString()}`;
+        }
+
+        // ---------------------------------------------------------------------------
+        // Status indicator
+        // ---------------------------------------------------------------------------
+        function setLiveStatus(isLive) {
+            const dot = document.getElementById('status-dot');
+            dot.className = isLive ? 'status-dot live' : 'status-dot';
+            dot.title = isLive ? 'Live data feed' : 'Alert processor unreachable';
+        }
+    </script>
+</body>
+</html>

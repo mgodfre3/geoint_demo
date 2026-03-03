@@ -1,0 +1,74 @@
+---
+# Deployment for the GEOINT Tactical Globe server.
+# Proxies SSE alerts from the alert-processor to browser clients and
+# serves the static CesiumJS client.
+#
+# Build and push before applying:
+#   docker build -f server/Dockerfile -t <ACR_NAME>.azurecr.io/tactical-globe:latest .
+#   docker push <ACR_NAME>.azurecr.io/tactical-globe:latest
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tactical-globe
+  namespace: azure-iot-operations
+  labels:
+    app: tactical-globe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tactical-globe
+  template:
+    metadata:
+      labels:
+        app: tactical-globe
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: tactical-globe
+          image: $(ACR_NAME).azurecr.io/tactical-globe:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: ALERT_PROCESSOR_URL
+              value: "http://alert-processor:8080"
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tactical-globe
+  namespace: azure-iot-operations
+  labels:
+    app: tactical-globe
+spec:
+  type: ClusterIP
+  selector:
+    app: tactical-globe
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

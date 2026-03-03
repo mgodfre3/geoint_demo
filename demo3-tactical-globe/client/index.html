@@ -22,29 +22,56 @@
             font-family: 'Segoe UI', system-ui;
         }
 
+        /* HUD status bar at the bottom */
+        #hud {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+            display: flex; align-items: center; gap: 24px;
+            padding: 8px 20px; font-family: 'Courier New', monospace; font-size: 13px;
+            border-top: 1px solid #0078d430;
+        }
+        #hud .hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        #hud .hud-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        #hud .hud-value { color: #00e676; font-weight: bold; }
+        #hud .hud-divider { width: 1px; height: 32px; background: #333; }
+        #hud .stream-status { margin-left: auto; font-size: 11px; color: #888; }
+        #hud .stream-status.connected { color: #00e676; }
+        #hud .stream-status.error { color: #ff5252; }
+
+        /* Alert feed (top-right) */
         #alerts {
-            position: fixed; bottom: 16px; right: 16px; z-index: 1000;
-            max-width: 350px; font-family: 'Segoe UI', system-ui;
+            position: fixed; top: 72px; right: 16px; z-index: 1000;
+            max-width: 360px; font-family: 'Segoe UI', system-ui;
         }
         .alert-item {
             background: rgba(255, 82, 82, 0.9); color: #fff;
-            padding: 12px 16px; margin-top: 8px; border-radius: 8px;
-            font-size: 13px; animation: slideIn 0.3s ease-out;
-            backdrop-filter: blur(4px);
+            padding: 10px 14px; margin-bottom: 6px; border-radius: 6px;
+            font-size: 12px; animation: slideIn 0.3s ease-out;
+            backdrop-filter: blur(4px); border-left: 3px solid #ff1744;
         }
-        .alert-item.detection { background: rgba(255, 193, 7, 0.9); color: #000; }
-        .alert-item.status_change { background: rgba(0, 120, 212, 0.9); }
+        .alert-item.old { background: rgba(255, 193, 7, 0.85); color: #000; border-left-color: #ffc107; }
 
-        #entity-count {
-            position: fixed; bottom: 16px; left: 16px; z-index: 1000;
-            background: rgba(0,0,0,0.7); color: #0f0; padding: 12px 16px;
-            border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px;
-            border: 1px solid #0f03;
+        /* Red screen-border flash on new alert */
+        #flash-border {
+            position: fixed; inset: 0; z-index: 999; pointer-events: none;
+            border: 0px solid transparent;
+            transition: border-width 0.05s ease-in, border-color 0.05s ease-in, opacity 0.6s ease-out;
+            opacity: 0;
+        }
+        #flash-border.active {
+            border: 6px solid #ff1744; opacity: 1;
         }
 
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Kiosk/interactive badge */
+        #kiosk-badge {
+            background: #ffc107; color: #000; padding: 4px 12px;
+            border-radius: 12px; font-size: 12px; font-weight: 500;
+            font-family: 'Segoe UI', system-ui;
         }
     </style>
 </head>
@@ -54,23 +81,50 @@
         <h1>🌐 GEOINT Tactical Operating Picture</h1>
         <span class="badge">Azure Local</span>
         <span class="badge" style="background: #00c853;">● LIVE</span>
-        <span class="badge" id="kiosk-badge" style="background: #ffc107; color: #000;">KIOSK MODE</span>
+        <span id="kiosk-badge">KIOSK MODE</span>
         <span style="margin-left:auto;font-family:'Segoe UI',system-ui;font-size:11px;color:#666;">Powered by Azure Local</span>
     </div>
 
     <div id="cesiumContainer"></div>
+    <div id="flash-border"></div>
 
-    <div id="entity-count">
-        <div>TRACKED ENTITIES: <span id="count">0</span></div>
-        <div>ALERTS: <span id="alert-count">0</span></div>
-        <div>UPTIME: <span id="uptime">00:00:00</span></div>
+    <!-- HUD status bar -->
+    <div id="hud">
+        <div class="hud-item">
+            <span class="hud-label">Active Sensors</span>
+            <span class="hud-value" id="hud-sensors">0</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+            <span class="hud-label">Alerts (60s)</span>
+            <span class="hud-value" id="hud-alerts-60s">0</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+            <span class="hud-label">Total Alerts</span>
+            <span class="hud-value" id="hud-alert-total">0</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+            <span class="hud-label">Last Alert</span>
+            <span class="hud-value" id="hud-last-alert">—</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+            <span class="hud-label">Uptime</span>
+            <span class="hud-value" id="hud-uptime">00:00:00</span>
+        </div>
+        <span class="stream-status" id="stream-status">⬤ Awaiting sensor data...</span>
     </div>
 
     <div id="alerts"></div>
 
     <script>
-        // Replace with your Cesium Ion access token
-        Cesium.Ion.defaultAccessToken = 'YOUR_CESIUM_ION_TOKEN';
+        // ---------------------------------------------------------------------------
+        // Cesium initialisation
+        // ---------------------------------------------------------------------------
+        // Set your Cesium Ion access token here or via a server-side template.
+        Cesium.Ion.defaultAccessToken = window.CESIUM_ION_TOKEN || 'YOUR_CESIUM_ION_TOKEN';
 
         const viewer = new Cesium.Viewer('cesiumContainer', {
             terrain: Cesium.Terrain.fromWorldTerrain(),
@@ -89,168 +143,273 @@
             selectionIndicator: true,
         });
 
-        // Entity tracking
-        const trackedEntities = {};
-        let alertCount = 0;
+        // ---------------------------------------------------------------------------
+        // State
+        // ---------------------------------------------------------------------------
         const startTime = Date.now();
+        // Map sensor_id → Cesium entity (for deduplication / update)
+        const alertEntities = {}; // sensor_id -> { entity, addedAt }
+        const recentAlertTimes = []; // epoch ms — used for 60s count
+        let totalAlerts = 0;
+        const activeSensors = new Set();
 
-        // WebSocket connection for real-time data
-        const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${wsProtocol}//${location.host}`);
+        // Kiosk mode: cycle camera between alert locations (falls back to DC if none)
+        const DEFAULT_WAYPOINTS = [
+            { lon: -77.0369, lat: 38.8951, height: 5000, heading: -17, pitch: -35 },
+            { lon: -77.0509, lat: 38.8719, height: 3000, heading: 45,  pitch: -25 },
+            { lon: -77.0091, lat: 38.8899, height: 2000, heading: -90, pitch: -30 },
+            { lon: -77.1482, lat: 38.7509, height: 8000, heading: 0,   pitch: -40 },
+        ];
+        const alertLocations = []; // { lon, lat } — populated as alerts arrive
+        let kioskActive = true;
+        let currentWaypoint = 0;
+        const params = new URLSearchParams(location.search);
+        if (params.get('kiosk') === '0') kioskActive = false;
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        // ---------------------------------------------------------------------------
+        // Alert entity helpers
+        // ---------------------------------------------------------------------------
+        const ALERT_TTL_MS = 5 * 60 * 1000;   // 5 minutes
+        const FRESH_THRESHOLD_MS = 30 * 1000;  // 30 seconds
 
-            if (data.type === 'entity_update') {
-                updateEntities(data.entities);
-            } else if (data.type === 'alert') {
-                showAlert(data);
-            } else if (data.type === 'detection_update') {
-                showDetections(data.detections);
+        /**
+         * Add or update a Cesium entity for the given alert.
+         * Fresh alerts (< 30 s) are red+pulsing; older ones are static yellow.
+         */
+        function upsertAlertEntity(alert, isFresh) {
+            const sid = alert.sensor_id;
+            const lon = parseFloat(alert.lon);
+            const lat = parseFloat(alert.lat);
+            const addedAt = Date.now();
+
+            // Remove existing entity for this sensor if present
+            if (alertEntities[sid]) {
+                viewer.entities.remove(alertEntities[sid].entity);
             }
-        };
 
-        ws.onclose = () => setTimeout(() => location.reload(), 3000);
+            const color = isFresh ? Cesium.Color.RED : Cesium.Color.YELLOW;
+            const labelText = `${alert.sensor_id}\n${alert.grid_ref}`;
 
-        // Handle AI detection results from Demo 1
-        const detectionEntities = [];
-        function showDetections(data) {
-            // Remove previous detection markers
-            detectionEntities.forEach(e => viewer.entities.remove(e));
-            detectionEntities.length = 0;
+            // Pulsing size callback for fresh alerts
+            let pixelSizeProperty;
+            if (isFresh) {
+                pixelSizeProperty = new Cesium.CallbackProperty(() => {
+                    const age = (Date.now() - addedAt) / 1000;
+                    // Oscillate between 12 and 24 px; stop pulsing after 30 s
+                    if (age > 30) return 14;
+                    return 14 + 10 * Math.abs(Math.sin(age * 3));
+                }, false);
+            } else {
+                pixelSizeProperty = 10;
+            }
 
-            const features = (data && data.features) ? data.features : (Array.isArray(data) ? data : []);
-            features.forEach(f => {
-                let lon, lat, label, confidence;
-                if (f.geometry && f.geometry.coordinates) {
-                    // GeoJSON polygon — use centroid of first ring
-                    const ring = f.geometry.coordinates[0];
-                    lon = ring.reduce((s, c) => s + c[0], 0) / ring.length;
-                    lat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
-                } else {
-                    lon = f.lon || -77.04;
-                    lat = f.lat || 38.89;
+            const entity = viewer.entities.add({
+                name: `${alert.sensor_type} — ${alert.sensor_id}`,
+                position: Cesium.Cartesian3.fromDegrees(lon, lat, 30),
+                point: {
+                    pixelSize: pixelSizeProperty,
+                    color: color,
+                    outlineColor: Cesium.Color.WHITE,
+                    outlineWidth: 2,
+                },
+                label: {
+                    text: labelText,
+                    font: '11px monospace',
+                    fillColor: color,
+                    outlineColor: Cesium.Color.BLACK,
+                    outlineWidth: 2,
+                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                    pixelOffset: new Cesium.Cartesian2(0, -16),
+                },
+                description: `
+                    <table style="font-family:monospace;font-size:13px;width:100%">
+                        <tr><td><b>Sensor ID</b></td><td>${alert.sensor_id}</td></tr>
+                        <tr><td><b>Type</b></td><td>${alert.sensor_type}</td></tr>
+                        <tr><td><b>Grid Ref</b></td><td>${alert.grid_ref}</td></tr>
+                        <tr><td><b>Reading</b></td><td><pre>${JSON.stringify(alert.reading, null, 2)}</pre></td></tr>
+                        <tr><td><b>Timestamp</b></td><td>${alert.timestamp}</td></tr>
+                        <tr><td><b>Job ID</b></td><td>${alert.job_id || '—'}</td></tr>
+                    </table>`,
+            });
+
+            alertEntities[sid] = { entity, addedAt };
+            trackAlertLocation(lon, lat);
+
+            // Remove after TTL
+            setTimeout(() => {
+                if (alertEntities[sid] && alertEntities[sid].entity === entity) {
+                    viewer.entities.remove(entity);
+                    delete alertEntities[sid];
                 }
-                label = (f.properties && f.properties.label) || f.label || 'detection';
-                confidence = (f.properties && f.properties.confidence) || f.confidence || 0;
+            }, ALERT_TTL_MS);
+        }
 
-                const ent = viewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lon, lat, 50),
-                    point: { pixelSize: 14, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
-                    label: {
-                        text: `${label} ${(confidence * 100).toFixed(0)}%`,
-                        font: '11px monospace',
-                        fillColor: Cesium.Color.RED,
-                        outlineColor: Cesium.Color.BLACK,
-                        outlineWidth: 2,
-                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                        pixelOffset: new Cesium.Cartesian2(0, -12),
-                    },
-                });
-                detectionEntities.push(ent);
+        function trackAlertLocation(lon, lat) {
+            // Keep the last 20 unique alert coordinates for kiosk cycling
+            alertLocations.push({ lon, lat });
+            if (alertLocations.length > 20) alertLocations.shift();
+        }
+
+        // ---------------------------------------------------------------------------
+        // On-screen alert feed (top-right panel)
+        // ---------------------------------------------------------------------------
+        function showAlertFeedItem(alert, isFresh) {
+            const div = document.getElementById('alerts');
+            const el = document.createElement('div');
+            el.className = 'alert-item' + (isFresh ? '' : ' old');
+            const ts = new Date(alert.timestamp).toLocaleTimeString();
+            el.textContent = `[${ts}] ${alert.sensor_type} · ${alert.sensor_id} · ${alert.grid_ref}`;
+            div.insertBefore(el, div.firstChild);
+            // Keep at most 8 items
+            while (div.children.length > 8) div.removeChild(div.lastChild);
+            // Auto-remove after 5 min
+            setTimeout(() => el.remove(), ALERT_TTL_MS);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Screen flash on new alert
+        // ---------------------------------------------------------------------------
+        function flashScreen() {
+            const fb = document.getElementById('flash-border');
+            fb.classList.add('active');
+            setTimeout(() => fb.classList.remove('active'), 600);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Camera fly-to
+        // ---------------------------------------------------------------------------
+        function flyToAlert(lon, lat) {
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(lon, lat, 3000),
+                orientation: { heading: 0, pitch: Cesium.Math.toRadians(-45), roll: 0 },
+                duration: 3,
             });
         }
 
-        function updateEntities(entities) {
-            let count = 0;
-            Object.entries(entities).forEach(([category, items]) => {
-                items.forEach(entity => {
-                    count++;
-                    const id = entity.id;
-                    const position = Cesium.Cartesian3.fromDegrees(
-                        entity.lon, entity.lat, entity.alt || 0
-                    );
-
-                    if (!trackedEntities[id]) {
-                        const color = category === 'aircraft' ? Cesium.Color.CYAN :
-                                     category === 'vessels' ? Cesium.Color.YELLOW :
-                                     Cesium.Color.LIME;
-
-                        trackedEntities[id] = viewer.entities.add({
-                            id: id,
-                            name: `${entity.type} (${id})`,
-                            position: position,
-                            point: { pixelSize: 10, color: color, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
-                            label: {
-                                text: `${entity.type}\n${id}`,
-                                font: '12px monospace',
-                                fillColor: color,
-                                outlineColor: Cesium.Color.BLACK,
-                                outlineWidth: 2,
-                                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                                pixelOffset: new Cesium.Cartesian2(0, -15),
-                            },
-                        });
-                    } else {
-                        trackedEntities[id].position = position;
-                    }
-                });
-            });
-
-            document.getElementById('count').textContent = count;
-        }
-
-        function showAlert(data) {
-            alertCount++;
-            document.getElementById('alert-count').textContent = alertCount;
-
-            const alertsDiv = document.getElementById('alerts');
-            const alertEl = document.createElement('div');
-            alertEl.className = `alert-item ${data.alertType}`;
-            alertEl.textContent = `[${data.alertType.toUpperCase()}] ${data.message}`;
-            alertsDiv.appendChild(alertEl);
-
-            // Flash entity on globe at alert location
-            if (data.location) {
-                const alertEntity = viewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(data.location.lon, data.location.lat),
-                    point: { pixelSize: 20, color: Cesium.Color.RED.withAlpha(0.8) },
-                });
-                setTimeout(() => viewer.entities.remove(alertEntity), 5000);
+        // ---------------------------------------------------------------------------
+        // Handle incoming alert (called for SSE events and polled history)
+        // ---------------------------------------------------------------------------
+        function handleAlert(alert, isFresh) {
+            activeSensors.add(alert.sensor_id);
+            if (isFresh) {
+                totalAlerts++;
+                recentAlertTimes.push(Date.now());
+                updateHUD(alert);
+                flashScreen();
+                showAlertFeedItem(alert, true);
+                upsertAlertEntity(alert, true);
+                // Auto-fly unless user is interacting
+                if (kioskActive) flyToAlert(alert.lon, alert.lat);
+            } else {
+                // Historical alert — static yellow marker, no fly/flash
+                showAlertFeedItem(alert, false);
+                upsertAlertEntity(alert, false);
             }
+        }
 
-            // Remove old alerts
-            setTimeout(() => alertEl.remove(), 10000);
-            while (alertsDiv.children.length > 5) {
-                alertsDiv.removeChild(alertsDiv.firstChild);
+        // ---------------------------------------------------------------------------
+        // HUD updates
+        // ---------------------------------------------------------------------------
+        function updateHUD(lastAlert) {
+            const now = Date.now();
+            // Purge entries older than 60 s
+            while (recentAlertTimes.length && now - recentAlertTimes[0] > 60000) {
+                recentAlertTimes.shift();
+            }
+            document.getElementById('hud-sensors').textContent = activeSensors.size;
+            document.getElementById('hud-alerts-60s').textContent = recentAlertTimes.length;
+            document.getElementById('hud-alert-total').textContent = totalAlerts;
+            if (lastAlert) {
+                document.getElementById('hud-last-alert').textContent =
+                    new Date(lastAlert.timestamp).toLocaleTimeString();
             }
         }
 
         // Uptime counter
         setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
-            const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
-            const s = String(elapsed % 60).padStart(2, '0');
-            document.getElementById('uptime').textContent = `${h}:${m}:${s}`;
+            const e = Math.floor((Date.now() - startTime) / 1000);
+            const h = String(Math.floor(e / 3600)).padStart(2, '0');
+            const m = String(Math.floor((e % 3600) / 60)).padStart(2, '0');
+            const s = String(e % 60).padStart(2, '0');
+            document.getElementById('hud-uptime').textContent = `${h}:${m}:${s}`;
+            updateHUD(null); // refresh 60s count periodically
         }, 1000);
 
-        // Kiosk mode: auto-rotate camera around DC
-        let kioskActive = true;
-        const kioskWaypoints = [
-            { lon: -77.0369, lat: 38.8951, height: 5000, heading: -17, pitch: -35 },
-            { lon: -77.0509, lat: 38.8719, height: 3000, heading: 45, pitch: -25 },
-            { lon: -77.0091, lat: 38.8899, height: 2000, heading: -90, pitch: -30 },
-            { lon: -77.1482, lat: 38.7509, height: 8000, heading: 0, pitch: -40 },
-        ];
-        let currentWaypoint = 0;
+        // ---------------------------------------------------------------------------
+        // Load existing alerts on page load (yellow static markers)
+        // ---------------------------------------------------------------------------
+        async function loadHistoricalAlerts() {
+            try {
+                const res = await fetch('/api/alerts');
+                if (!res.ok) return;
+                const alerts = await res.json();
+                const now = Date.now();
+                alerts.forEach(a => {
+                    const age = now - new Date(a.timestamp).getTime();
+                    // Only show alerts within TTL window
+                    if (age < ALERT_TTL_MS) {
+                        activeSensors.add(a.sensor_id);
+                        handleAlert(a, false);
+                    }
+                });
+                updateHUD(null);
+            } catch (e) {
+                // Alert processor unreachable — silently ignore
+            }
+        }
+        loadHistoricalAlerts();
+
+        // ---------------------------------------------------------------------------
+        // SSE stream — live alerts
+        // ---------------------------------------------------------------------------
+        const statusEl = document.getElementById('stream-status');
+
+        function connectSSE() {
+            const es = new EventSource('/api/alerts/stream');
+
+            es.addEventListener('alert', (e) => {
+                try {
+                    const alert = JSON.parse(e.data);
+                    handleAlert(alert, true);
+                    statusEl.textContent = `⬤ Live — last event ${new Date().toLocaleTimeString()}`;
+                    statusEl.className = 'stream-status connected';
+                } catch (err) { /* malformed event */ }
+            });
+
+            es.onerror = () => {
+                statusEl.textContent = '⬤ Awaiting sensor data...';
+                statusEl.className = 'stream-status error';
+                es.close();
+                // Reconnect after 5 seconds
+                setTimeout(connectSSE, 5000);
+            };
+        }
+        connectSSE();
+
+        // ---------------------------------------------------------------------------
+        // Kiosk mode — cycle camera between alert locations (or DC defaults)
+        // ---------------------------------------------------------------------------
+        function getKioskWaypoints() {
+            if (alertLocations.length > 0) return alertLocations;
+            return DEFAULT_WAYPOINTS;
+        }
 
         function flyToNextWaypoint() {
             if (!kioskActive) return;
-            const wp = kioskWaypoints[currentWaypoint];
+            const pts = getKioskWaypoints();
+            const pt = pts[currentWaypoint % pts.length];
             viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(wp.lon, wp.lat, wp.height),
+                destination: Cesium.Cartesian3.fromDegrees(pt.lon, pt.lat, pt.height || 4000),
                 orientation: {
-                    heading: Cesium.Math.toRadians(wp.heading),
-                    pitch: Cesium.Math.toRadians(wp.pitch),
+                    heading: Cesium.Math.toRadians(pt.heading || 0),
+                    pitch:   Cesium.Math.toRadians(pt.pitch   || -35),
                     roll: 0,
                 },
                 duration: 8,
                 complete: () => {
-                    currentWaypoint = (currentWaypoint + 1) % kioskWaypoints.length;
-                    setTimeout(flyToNextWaypoint, 12000);
+                    currentWaypoint = (currentWaypoint + 1) % pts.length;
+                    setTimeout(flyToNextWaypoint, 15000);
                 },
             });
         }
@@ -258,15 +417,17 @@
         // Start kiosk flyover after initial load
         setTimeout(flyToNextWaypoint, 3000);
 
-        // Disable kiosk on user interaction, re-enable after 30s
+        // Pause kiosk on user interaction; resume after 30 s
         viewer.scene.canvas.addEventListener('mousedown', () => {
             kioskActive = false;
             document.getElementById('kiosk-badge').style.background = '#666';
+            document.getElementById('kiosk-badge').style.color = '#fff';
             document.getElementById('kiosk-badge').textContent = 'INTERACTIVE';
             clearTimeout(window._kioskTimer);
             window._kioskTimer = setTimeout(() => {
                 kioskActive = true;
                 document.getElementById('kiosk-badge').style.background = '#ffc107';
+                document.getElementById('kiosk-badge').style.color = '#000';
                 document.getElementById('kiosk-badge').textContent = 'KIOSK MODE';
                 flyToNextWaypoint();
             }, 30000);
