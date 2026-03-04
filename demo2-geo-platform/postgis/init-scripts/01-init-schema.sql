@@ -57,12 +57,29 @@ CREATE TABLE IF NOT EXISTS tracks (
     metadata JSONB
 );
 
+-- Sensor telemetry stream (ingested from IoT Operations)
+CREATE TABLE IF NOT EXISTS sensor_telemetry (
+    id SERIAL PRIMARY KEY,
+    sensor_id VARCHAR(100) NOT NULL,
+    sensor_type VARCHAR(100) NOT NULL,
+    grid_ref VARCHAR(50),
+    recorded_at TIMESTAMPTZ,
+    lat DOUBLE PRECISION,
+    lon DOUBLE PRECISION,
+    geom GEOMETRY(Point, 4326),
+    is_alert BOOLEAN DEFAULT false,
+    reading JSONB,
+    ingested_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Spatial indexes
 CREATE INDEX idx_named_areas_geom ON named_areas USING GIST (geom);
 CREATE INDEX idx_poi_geom ON points_of_interest USING GIST (geom);
 CREATE INDEX idx_detections_geom ON detections USING GIST (bbox_geom);
 CREATE INDEX idx_sensor_coverage_geom ON sensor_coverage USING GIST (coverage_geom);
 CREATE INDEX idx_tracks_geom ON tracks USING GIST (geom);
+CREATE INDEX idx_sensor_telemetry_geom ON sensor_telemetry USING GIST (geom);
+CREATE INDEX idx_sensor_telemetry_recorded_at ON sensor_telemetry (recorded_at);
 
 -- Sample data: Washington DC area demo scenario
 INSERT INTO named_areas (name, category, description, priority, geom) VALUES

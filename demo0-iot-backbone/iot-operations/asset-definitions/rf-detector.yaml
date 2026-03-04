@@ -5,7 +5,7 @@
 #
 # Apply with: kubectl apply -f rf-detector.yaml
 
-apiVersion: deviceregistry.microsoft.com/v1beta1
+apiVersion: deviceregistry.microsoft.com/v1
 kind: Asset
 metadata:
   name: rf-detector-001

@@ -87,6 +87,18 @@ cd /opt/geoint/demo2-geo-platform
 docker compose up -d
 ```
 
+> The `postgis-ingest` container requires MQTT connectivity to the IoT Operations broker that runs on the AKS worker. Export the broker host/port + credentials (values come from your `.env` file) before starting Compose:
+>
+> ```bash
+> export MQTT_HOST=$AKS_WORKER_IP
+> export MQTT_PORT=${MQTT_BROKER_NODEPORT:-31883}
+> export MQTT_USERNAME=${MQTT_USERNAME:-geoint-demo}
+> export MQTT_PASSWORD=${MQTT_PASSWORD:-''}
+> docker compose up -d
+> ```
+>
+> Adjust the host/credentials as needed if you customized the IoT backbone deployment.
+
 ### 3.2 CesiumJS Globe (Demo 3)
 
 SSH into the Globe VM and start services:

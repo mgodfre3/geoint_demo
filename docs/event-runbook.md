@@ -146,6 +146,8 @@ All containers should show `Up`. If not:
 docker compose up -d
 ```
 
+Expected services: `geoserver`, `postgis`, `tileserver`, `frontend`, and `postgis-ingest`. If `postgis-ingest` is not `Up`, re-export the MQTT variables (`MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`) so it can reach the IoT Operations broker, then run `docker compose up -d postgis-ingest`.
+
 **Demo 3 — CesiumJS Globe (Node 2 VM):**
 
 ```bash

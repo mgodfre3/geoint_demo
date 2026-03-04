@@ -6,7 +6,7 @@
 #
 # Apply with: kubectl apply -f weather-station.yaml
 
-apiVersion: deviceregistry.microsoft.com/v1beta1
+apiVersion: deviceregistry.microsoft.com/v1
 kind: Asset
 metadata:
   name: weather-station-001

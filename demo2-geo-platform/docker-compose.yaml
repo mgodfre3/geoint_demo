@@ -29,6 +29,27 @@ services:
       - ./postgis/init-scripts:/docker-entrypoint-initdb.d
     restart: unless-stopped
 
+  postgis-ingest:
+    build:
+      context: ./postgis-ingest
+    depends_on:
+      - postgis
+    environment:
+      - MQTT_HOST=${MQTT_HOST:-host.docker.internal}
+      - MQTT_PORT=${MQTT_PORT:-31883}
+      - MQTT_USERNAME=${MQTT_USERNAME:-geoint-demo}
+      - MQTT_PASSWORD=${MQTT_PASSWORD:-}
+      - MQTT_TOPIC=${MQTT_TOPIC:-geoint/pipelines/sensor-telemetry}
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=geoint
+      - POSTGRES_USER=geoint
+      - POSTGRES_PASSWORD=geoint_demo_2026
+      - LOG_LEVEL=${POSTGIS_INGEST_LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
   tileserver:
     image: maptiler/tileserver-gl:latest
     ports:

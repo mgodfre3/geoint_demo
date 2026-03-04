@@ -2,25 +2,25 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-    Deploys the GEOINT Demo 0 — IoT Backbone module to an Azure Local cluster.
+    Deploys the GEOINT Demo 0 ΓÇö IoT Backbone module to an Azure Local cluster.
 
 .DESCRIPTION
     Fully parameterized deployment script.  All cluster-specific values
     (subscription IDs, cluster names, credentials) are read from an .env file.
     No values are hardcoded in this script.
 
-    Steps performed:
-      1. Validate Azure CLI login and required extensions
-      2. Create the 'azure-iot-operations' K8s namespace
-      3. Apply iot-namespace.yaml (namespace + RBAC)
-      4. Deploy Azure IoT Operations extension via Bicep
-      5. Wait for extension to reach Succeeded state
-      6. Create K8s Secrets for MQTT credentials
-      7. Apply MQTT broker, asset definitions, and pipeline manifests
-      8. Build and push sensor-simulator Docker image to ACR
-      9. Build and push alert-processor Docker image to ACR
-     10. Apply simulator and processor K8s manifests
-     11. Print summary
+        Steps performed:
+            1. Validate Azure CLI login and required extensions
+            2. Create the 'azure-iot-operations' K8s namespace + RBAC
+            3. Ensure cert-manager + trust-manager (installs if missing)
+            4. Deploy Azure IoT Operations extension
+            5. Wait for extension to reach Succeeded state
+            6. Create K8s Secrets for MQTT credentials
+            7. Apply MQTT broker, asset definitions, and pipeline manifests
+            8. Build and push sensor-simulator Docker image to ACR
+            9. Build and push alert-processor Docker image to ACR
+         10. Apply simulator and processor K8s manifests
+         11. Print summary
 
 .PARAMETER EnvFile
     Path to the .env file containing all cluster-specific configuration.
@@ -55,13 +55,13 @@ param (
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Repo root (two levels up from this script) ────────────────────
+# ΓöÇΓöÇ Repo root (two levels up from this script) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 $RepoRoot   = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Demo0Root  = Join-Path $RepoRoot "demo0-iot-backbone"
 
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 # Helper: Run or print a command depending on -DryRun
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Invoke-Step {
     <#
     .SYNOPSIS
@@ -71,7 +71,7 @@ function Invoke-Step {
         [string]   $Description,
         [string[]] $Command
     )
-    Write-Host "`n▶  $Description" -ForegroundColor Cyan
+    Write-Host "`nΓû╢  $Description" -ForegroundColor Cyan
     $cmdStr = $Command -join " "
     Write-Host "   $cmdStr" -ForegroundColor DarkGray
     if (-not $DryRun) {
@@ -82,9 +82,9 @@ function Invoke-Step {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 0 — Load .env file
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 0 ΓÇö Load .env file
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Import-EnvFile {
     <#
     .SYNOPSIS
@@ -105,9 +105,9 @@ function Import-EnvFile {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 1 — Validate Azure CLI + required extensions
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 1 ΓÇö Validate Azure CLI + required extensions
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Assert-AzureCli {
     <#
     .SYNOPSIS
@@ -135,9 +135,9 @@ function Assert-AzureCli {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 2+3 — Create namespace and apply RBAC
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 2+3 ΓÇö Create namespace and apply RBAC
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-Namespace {
     <#
     .SYNOPSIS
@@ -157,47 +157,76 @@ function Deploy-Namespace {
     )
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 4+5 — Deploy Azure IoT Operations extension via Bicep
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 4+5 ΓÇö Deploy Azure IoT Operations extension via Bicep
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-IotOpsExtension {
     <#
     .SYNOPSIS
-        Run the Bicep template to install the AIO k8s extension, then
+        Install or update the Azure IoT Operations k8s extension, then
         poll until the extension reaches Succeeded state.
     #>
-    Write-Host "`n[3/10] Deploying Azure IoT Operations extension (Bicep)..." -ForegroundColor Yellow
+    Write-Host "`n[3/10] Deploying Azure IoT Operations extension..." -ForegroundColor Yellow
 
-    $sub          = $env:AZURE_SUBSCRIPTION_ID
-    $rg           = $env:AZURE_RESOURCE_GROUP
-    $clusterName  = $env:AKS_CLUSTER_NAME
-    $extVersion   = $env:IOT_OPS_EXTENSION_VERSION ?? "latest"
-    $bicepFile    = Join-Path $Demo0Root "infra\iot-operations.bicep"
+    $sub         = $env:AZURE_SUBSCRIPTION_ID
+    $rg          = $env:AZURE_RESOURCE_GROUP
+    $clusterName = $env:AKS_CLUSTER_NAME
+    $extVersion  = $env:IOT_OPS_EXTENSION_VERSION ?? "latest"
+    $extName     = "azure-iot-operations"
 
-    Invoke-Step -Description "Deploy IoT Operations Bicep" -Command @(
-        "az", "deployment", "group", "create",
+    if (-not $DryRun) {
+        $existingState = az k8s-extension show `
+            --cluster-name $clusterName `
+            --cluster-type connectedClusters `
+            --resource-group $rg `
+            --name $extName `
+            --subscription $sub `
+            --query "provisioningState" -o tsv 2>$null
+        if ($LASTEXITCODE -eq 0 -and $existingState -eq "Succeeded") {
+            Write-Host "   IoT Operations extension already installed." -ForegroundColor Green
+            return
+        }
+    }
+
+    $autoUpgrade = "true"
+    $versionArgs = @()
+    $releaseTrainArgs = @("--release-train", "stable")
+    if ($extVersion -and $extVersion -ne "latest") {
+        $autoUpgrade = "false"
+        $versionArgs = @("--version", $extVersion)
+        $releaseTrainArgs = @()  # explicit version does not need release train
+    }
+
+    $createArgs = @(
+        "az", "k8s-extension", "create",
         "--subscription", $sub,
         "--resource-group", $rg,
-        "--template-file", $bicepFile,
-        "--parameters", "clusterName=$clusterName",
-                        "clusterResourceGroup=$rg",
-                        "extensionVersion=$extVersion",
-        "--name", "iot-ops-extension-deploy",
-        "--no-wait"
-    )
+        "--cluster-name", $clusterName,
+        "--cluster-type", "connectedClusters",
+        "--name", $extName,
+        "--extension-type", "microsoft.iotoperations",
+        "--auto-upgrade-minor-version", $autoUpgrade,
+        "--configuration-settings",
+            "schemaRegistry.namespace=azure-iot-operations",
+            "mqttBroker.enabled=true",
+            "dataProcessor.enabled=true"
+    ) + $releaseTrainArgs + $versionArgs
+
+    Invoke-Step -Description "Deploy IoT Operations extension" -Command $createArgs
 
     if (-not $DryRun) {
         Write-Host "`n[4/10] Waiting for IoT Operations extension to be ready..." -ForegroundColor Yellow
-        $timeout   = 600   # seconds
-        $elapsed   = 0
-        $pollSecs  = 15
+        $timeout  = 600
+        $elapsed  = 0
+        $pollSecs = 15
 
         while ($elapsed -lt $timeout) {
             $state = az k8s-extension show `
                 --cluster-name $clusterName `
                 --cluster-type connectedClusters `
                 --resource-group $rg `
-                --name azure-iot-operations `
+                --name $extName `
+                --subscription $sub `
                 --query "provisioningState" -o tsv 2>&1
 
             Write-Host "   State: $state ($elapsed s elapsed)"
@@ -215,14 +244,14 @@ function Deploy-IotOpsExtension {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 6 — Create K8s Secrets
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 6 ΓÇö Create K8s Secrets
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-Secrets {
     <#
     .SYNOPSIS
         Create Kubernetes Secrets for MQTT credentials and simulator config.
-        Secrets are created from env vars — never written to disk.
+        Secrets are created from env vars ΓÇö never written to disk.
     #>
     Write-Host "`n[5/10] Creating Kubernetes secrets..." -ForegroundColor Yellow
 
@@ -254,11 +283,28 @@ function Deploy-Secrets {
     } else {
         Write-Host "   [DRY-RUN] Would create secret: sensor-simulator-secret"
     }
+
+    $acrName = $env:ACR_NAME
+    if (-not $acrName) {
+        throw "ACR_NAME not set in .env file."
+    }
+
+    if (-not $DryRun) {
+        $acrPassword = az acr credential show --name $acrName --query "passwords[0].value" -o tsv
+        kubectl create secret docker-registry acr-credentials `
+            --namespace azure-iot-operations `
+            --docker-server="$acrName.azurecr.io" `
+            --docker-username=$acrName `
+            --docker-password=$acrPassword `
+            --dry-run=client -o yaml | kubectl apply -f -
+    } else {
+        Write-Host "   [DRY-RUN] Would create secret: acr-credentials"
+    }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 7 — Apply IoT Operations manifests
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 7 ΓÇö Apply IoT Operations manifests
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-IotManifests {
     <#
     .SYNOPSIS
@@ -268,6 +314,7 @@ function Deploy-IotManifests {
 
     $manifests = @(
         (Join-Path $Demo0Root "iot-operations\mqtt-broker\broker.yaml"),
+        (Join-Path $Demo0Root "iot-operations\dataflow-endpoints\default-broker.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\weather-station.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\seismic-sensor.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\rf-detector.yaml"),
@@ -289,9 +336,9 @@ function Deploy-IotManifests {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 8+9 — Build and push Docker images to ACR
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 8+9 ΓÇö Build and push Docker images to ACR
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-ContainerImages {
     <#
     .SYNOPSIS
@@ -330,9 +377,9 @@ function Deploy-ContainerImages {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Step 10 — Apply simulator and processor K8s manifests
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Step 10 ΓÇö Apply simulator and processor K8s manifests
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Deploy-Workloads {
     <#
     .SYNOPSIS
@@ -364,16 +411,16 @@ function Deploy-Workloads {
     }
 }
 
-# ─────────────────────────────────────────────────────────────────
-# Teardown — reverse all steps
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Teardown ΓÇö reverse all steps
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Remove-Deployment {
     <#
     .SYNOPSIS
         Remove all demo0 resources: workloads, IoT Operations manifests,
         extension, and namespace.
     #>
-    Write-Host "`n⚠  TEARDOWN: removing all demo0-iot-backbone resources..." -ForegroundColor Red
+    Write-Host "`nΓÜá  TEARDOWN: removing all demo0-iot-backbone resources..." -ForegroundColor Red
 
     $sub         = $env:AZURE_SUBSCRIPTION_ID
     $rg          = $env:AZURE_RESOURCE_GROUP
@@ -410,12 +457,12 @@ function Remove-Deployment {
         "kubectl", "delete", "namespace", "azure-iot-operations", "--ignore-not-found"
     )
 
-    Write-Host "`n✅ Teardown complete." -ForegroundColor Green
+    Write-Host "`nΓ£à Teardown complete." -ForegroundColor Green
 }
 
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 # Summary
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function Write-Summary {
     <#
     .SYNOPSIS
@@ -426,9 +473,9 @@ function Write-Summary {
     $grafanaNs = $env:GRAFANA_NAMESPACE ?? "monitoring"
 
     Write-Host ""
-    Write-Host "════════════════════════════════════════════════════" -ForegroundColor Green
-    Write-Host "  ✅  GEOINT Demo 0 — IoT Backbone Deployed"         -ForegroundColor Green
-    Write-Host "════════════════════════════════════════════════════" -ForegroundColor Green
+    Write-Host "ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ" -ForegroundColor Green
+    Write-Host "  Γ£à  GEOINT Demo 0 ΓÇö IoT Backbone Deployed"         -ForegroundColor Green
+    Write-Host "ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ" -ForegroundColor Green
     Write-Host ""
     Write-Host "  MQTT Broker (NodePort):  mqtt://${workerIp}:${mqttPort}"
     Write-Host "  Alert Processor:         kubectl port-forward svc/alert-processor 8080:8080 -n azure-iot-operations"
@@ -442,9 +489,9 @@ function Write-Summary {
     Write-Host ""
 }
 
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 # Main entry point
-# ─────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 $envPath = Join-Path $RepoRoot $EnvFile
 Import-EnvFile -Path $envPath
 
@@ -469,4 +516,4 @@ if (-not $DryRun) {
     Write-Summary
 }
 
-Write-Host "`n✅ Deploy complete." -ForegroundColor Green
+Write-Host "`nΓ£à Deploy complete." -ForegroundColor Green

@@ -1,29 +1,20 @@
-# Azure IoT Operations — MQTT Broker configuration
-# Deploys a single-node AIOT broker with:
-#   - Non-TLS listener on port 1883 (NodePort 31883) for demo accessibility
-#   - TLS listener on port 8883 for secure client connections
-#   - Username/password authentication (demo credentials)
-# Namespace: azure-iot-operations
+# Azure IoT Operations — MQTT Broker listener configuration
+# Adds a demo-friendly NodePort listener to the default broker that Azure IoT
+# Operations provisions with each Instance. This keeps the managed broker
+# configuration intact while exposing a plain MQTT endpoint for edge workloads
+# such as the sensor simulator.
 #
+#   - Service: aio-broker-nodeport
+#   - Cluster port: 1883
+#   - NodePort (patched in deploy script): defaults to 31883
+#   - Authentication intentionally disabled (demo only)
+#
+# Namespace: azure-iot-operations
 # Apply with: kubectl apply -f broker.yaml
-# Requires: Azure IoT Operations extension installed on the cluster.
-
-# ── Broker: main broker instance ────────────────────────────────
-apiVersion: mqttbroker.iotoperations.azure.com/v1beta1
-kind: Broker
-metadata:
-  name: geoint-broker
-  namespace: azure-iot-operations
-  labels:
-    demo: geoint-iot-backbone
-spec:
-  # Single-node configuration suitable for demo / staging clusters.
-  mode: auto
-  memoryProfile: medium
 
 ---
-# ── BrokerListener: non-TLS (demo access) ───────────────────────
-apiVersion: mqttbroker.iotoperations.azure.com/v1beta1
+# ── BrokerListener: non-TLS NodePort for demos ──────────────────
+apiVersion: mqttbroker.iotoperations.azure.com/v1
 kind: BrokerListener
 metadata:
   name: geoint-listener-nodeport
@@ -31,55 +22,12 @@ metadata:
   labels:
     demo: geoint-iot-backbone
 spec:
-  brokerRef: geoint-broker
+  brokerRef: default
+  serviceName: aio-broker-nodeport
   serviceType: NodePort
   ports:
     - port: 1883
       # NodePort value comes from MQTT_BROKER_NODEPORT in .env (default: 31883).
       # The deploy-iot-backbone.ps1 script patches this value before applying.
       nodePort: ${MQTT_BROKER_NODEPORT}
-      protocol: mqtt
-      authenticationRef: geoint-authn
-
----
-# ── BrokerListener: TLS (production-ready) ──────────────────────
-apiVersion: mqttbroker.iotoperations.azure.com/v1beta1
-kind: BrokerListener
-metadata:
-  name: geoint-listener-tls
-  namespace: azure-iot-operations
-  labels:
-    demo: geoint-iot-backbone
-spec:
-  brokerRef: geoint-broker
-  serviceType: ClusterIP
-  ports:
-    - port: 8883
-      protocol: mqtt
-      tls:
-        mode: automatic        # Managed certificate via cert-manager
-        certManagerCertificateSpec:
-          issuerRef:
-            name: azure-iot-operations-aio-certificate-issuer
-            kind: ClusterIssuer
-      authenticationRef: geoint-authn
-
----
-# ── BrokerAuthentication: username/password ──────────────────────
-# Credentials are stored in the 'mqtt-broker-secret' K8s Secret.
-# Created by deploy-iot-backbone.ps1 from .env values.
-apiVersion: mqttbroker.iotoperations.azure.com/v1beta1
-kind: BrokerAuthentication
-metadata:
-  name: geoint-authn
-  namespace: azure-iot-operations
-  labels:
-    demo: geoint-iot-backbone
-spec:
-  listenerRef:
-    - geoint-listener-nodeport
-    - geoint-listener-tls
-  authenticationMethods:
-    - method: UsernamePassword
-      usernamePasswordSettings:
-        secretRef: mqtt-broker-secret
+      protocol: Mqtt
