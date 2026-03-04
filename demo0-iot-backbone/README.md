@@ -21,7 +21,7 @@
 │  └──────────────────┘                              │                    │
 │                                           ┌────────┴──────────────┐     │
 │                                           │  pipeline-sensors     │     │
-│                                           │  → PostGIS ingest API │     │
+│                                           │  → postgis-ingest (D2)│     │
 │                                           │                       │     │
 │                                           │  pipeline-alerts      │     │
 │                                           │  → alert-processor    │     │
@@ -138,6 +138,8 @@ notepad .env.prod   # or use your preferred editor
 | `geoint/sensors/{type}/{id}/telemetry` | Simulator → Broker | Normal sensor reading (every 2–5 s) |
 | `geoint/sensors/{type}/{id}/alert` | Simulator → Broker | Anomaly alert (when `alert: true`) |
 | `geoint/sensors/status` | Simulator → Broker | Heartbeat — active sensor list (every 30 s) |
+| `geoint/pipelines/alerts` | IoT Operations → alert-processor | Filtered anomaly events consumed by the FastAPI trigger |
+| `geoint/pipelines/sensor-telemetry` | IoT Operations → postgis-ingest (Demo 2) | Flattened telemetry payloads ready for PostGIS |
 
 **Sensor types:** `weather-station`, `seismic`, `rf-detector`
 

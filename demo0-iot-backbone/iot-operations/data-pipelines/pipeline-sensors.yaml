@@ -1,37 +1,32 @@
-# Azure IoT Operations — Data Pipeline: Sensor Telemetry → PostGIS
+# Azure IoT Operations — Dataflow: Sensor telemetry → flattened MQTT topic
 #
-# Source  : MQTT topic  geoint/sensors/+/+/telemetry
-# Transform: Flatten nested payload to PostGIS-compatible flat row
-# Destination: HTTP POST to the PostGIS ingest API (configurable endpoint)
-#
-# The 'DataFlow' CRD is used with Azure IoT Operations v1.0+.
-# For older AIO versions (preview), replace kind: DataFlow with kind: Pipeline.
+# Source      : MQTT topic geoint/sensors/+/+/telemetry (all sensor payloads)
+# Transform   : Flatten canonical payload into a PostGIS-friendly schema
+# Destination : MQTT topic geoint/pipelines/sensor-telemetry (consumed by downstream ETL)
 #
 # Apply with: kubectl apply -f pipeline-sensors.yaml
 
-apiVersion: dataflow.iotoperations.azure.com/v1beta1
-kind: DataFlow
+apiVersion: connectivity.iotoperations.azure.com/v1
+kind: Dataflow
 metadata:
   name: sensor-telemetry-to-postgis
   namespace: azure-iot-operations
   labels:
     demo: geoint-iot-backbone
 spec:
-  # ── Source: subscribe to all sensor telemetry topics ────────────
-  sources:
-    - sourceType: MqttBroker
-      mqttBrokerSettings:
-        brokerRef: geoint-broker
-        # Wildcard subscription covers all sensor types and IDs
-        topics:
-          - geoint/sensors/+/+/telemetry
-        consumerGroupId: pipeline-sensors-group
-
-  # ── Transformation: flatten payload to a PostGIS-ready record ───
+  profileRef: default
+  mode: Enabled
+  requestDiskPersistence: Disabled
   operations:
-    - operationType: BuiltInTransformation
+    - name: source-telemetry
+      operationType: Source
+      sourceSettings:
+        endpointRef: aio-default-broker
+        dataSources:
+          - geoint/sensors/+/+/telemetry
+    - name: flatten-payload
+      operationType: BuiltInTransformation
       builtInTransformationSettings:
-        # Map from the canonical sensor payload schema to flat columns
         map:
           - inputs: ["$source.sensor_id"]
             output: "sensor_id"
@@ -46,20 +41,11 @@ spec:
           - inputs: ["$source.timestamp"]
             output: "recorded_at"
           - inputs: ["$source.reading"]
-            output: "reading_json"   # Stored as JSONB in PostGIS
+            output: "reading_json"
           - inputs: ["$source.alert"]
             output: "is_alert"
-        # Filter: forward all messages (no filter on the sensor pipeline)
-        filter: "true"
-
-  # ── Destination: PostGIS ingest API ─────────────────────────────
-  destinations:
-    - destinationType: Http
-      httpSettings:
-        # Endpoint is provided by the demo2-geo-platform PostGIS ingest service.
-        # Override POSTGIS_INGEST_URL in your .env file.
-        url: "${POSTGIS_INGEST_URL:-http://postgis-ingest-service.demo2:8080/ingest/sensor}"
-        method: POST
-        contentType: application/json
-        authentication:
-          type: None   # Internal cluster traffic — no auth required for demo
+    - name: publish-telemetry
+      operationType: Destination
+      destinationSettings:
+        endpointRef: aio-default-broker
+        dataDestination: geoint/pipelines/sensor-telemetry

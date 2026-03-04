@@ -20,8 +20,12 @@ spec:
         app: alert-processor
         demo: geoint-iot-backbone
     spec:
+      imagePullSecrets:
+        - name: acr-credentials
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -43,6 +47,14 @@ spec:
                   key: VISION_PIPELINE_URL
             - name: ALERT_PROCESSOR_PORT
               value: "8080"
+            - name: MQTT_ALERT_BRIDGE_ENABLED
+              value: "true"
+            - name: MQTT_ALERT_HOST
+              value: "aio-broker-nodeport"
+            - name: MQTT_ALERT_PORT
+              value: "1883"
+            - name: MQTT_ALERT_TOPIC
+              value: "geoint/pipelines/alerts"
           livenessProbe:
             httpGet:
               path: /health

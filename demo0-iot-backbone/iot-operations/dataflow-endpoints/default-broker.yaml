@@ -1,0 +1,23 @@
+# Azure IoT Operations — Dataflow Endpoint: Built-in MQTT broker
+# Provides a reusable endpoint reference for GA dataflows so they can
+# subscribe to or publish messages via the demo NodePort listener that
+# exposes the managed broker without TLS or authentication. The endpoint
+# is intentionally anonymous because the BrokerListener in broker.yaml
+# disables auth for demo purposes.
+---
+apiVersion: connectivity.iotoperations.azure.com/v1
+kind: DataflowEndpoint
+metadata:
+  name: aio-default-broker
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+spec:
+  endpointType: Mqtt
+  mqttSettings:
+    host: aio-broker-nodeport:1883
+    authentication:
+      method: Anonymous
+      anonymousSettings: {}
+    tls:
+      mode: Disabled

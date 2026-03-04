@@ -1,49 +1,41 @@
-# Azure IoT Operations — Data Pipeline: Anomaly Alerts → Alert Processor
+# Azure IoT Operations — Dataflow: Filtered anomaly alerts → MQTT topic
 #
-# Source  : MQTT topic  geoint/sensors/+/+/alert
-# Filter  : Only forward messages where alert == true
-# Destination: HTTP POST to alert-processor service
-#              (http://alert-processor:8080/trigger)
+# Source      : MQTT topic geoint/sensors/+/+/alert (raw sensor alert events)
+# Filter      : Forward only payloads where alert == true
+# Destination : MQTT topic geoint/pipelines/alerts (consumed by alert-processor)
 #
 # Apply with: kubectl apply -f pipeline-alerts.yaml
 
-apiVersion: dataflow.iotoperations.azure.com/v1beta1
-kind: DataFlow
+apiVersion: connectivity.iotoperations.azure.com/v1
+kind: Dataflow
 metadata:
   name: sensor-alerts-to-processor
   namespace: azure-iot-operations
   labels:
     demo: geoint-iot-backbone
 spec:
-  # ── Source: subscribe to all sensor alert topics ─────────────────
-  sources:
-    - sourceType: MqttBroker
-      mqttBrokerSettings:
-        brokerRef: geoint-broker
-        # Alert topics — published only when sensor.alert == true
-        topics:
-          - geoint/sensors/+/+/alert
-        consumerGroupId: pipeline-alerts-group
-
-  # ── Transformation: filter and pass-through ──────────────────────
+  profileRef: default
+  mode: Enabled
+  requestDiskPersistence: Disabled
   operations:
-    - operationType: BuiltInTransformation
+    - name: source-alerts
+      operationType: Source
+      sourceSettings:
+        endpointRef: aio-default-broker
+        dataSources:
+          - geoint/sensors/+/+/alert
+    - name: filter-alerts
+      operationType: BuiltInTransformation
       builtInTransformationSettings:
-        # Pass all fields through unchanged
         map:
           - inputs: ["*"]
             output: "*"
-        # Filter: only forward messages where the alert field is true.
-        # This guards against any stray non-alert messages on these topics.
-        filter: "$source.alert == true"
-
-  # ── Destination: alert-processor FastAPI service ─────────────────
-  destinations:
-    - destinationType: Http
-      httpSettings:
-        # alert-processor runs in the same namespace — internal DNS resolves it.
-        url: "http://alert-processor.azure-iot-operations.svc.cluster.local:8080/trigger"
-        method: POST
-        contentType: application/json
-        authentication:
-          type: None   # Intra-cluster traffic — no auth for demo
+        filter:
+          - inputs:
+              - "$source.alert"
+            expression: "$1 == true"
+    - name: publish-alerts
+      operationType: Destination
+      destinationSettings:
+        endpointRef: aio-default-broker
+        dataDestination: geoint/pipelines/alerts
