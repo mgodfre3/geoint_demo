@@ -11,10 +11,51 @@
    az extension add --name stack-hci-vm
    az extension add --name connectedk8s
    az extension add --name k8s-configuration
+   az extension add --name azure-iot-ops
    ```
 3. **kubectl** and **Helm** installed
 4. **Docker** (for building container images locally)
 5. **Azure subscription** with Contributor access
+
+## Step 0: Deploy IoT Backbone (Demo 0)
+
+The IoT Backbone must be deployed first — it provides the MQTT sensor stream and alert events that trigger the AI vision pipeline.
+
+### 0.1 Configure Environment File
+
+```powershell
+# Copy the template and fill in your cluster values
+cp .env.template .env.staging
+notepad .env.staging   # set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, AKS_CLUSTER_NAME, ACR_NAME, MQTT_PASSWORD, etc.
+```
+
+### 0.2 Deploy the IoT Backbone
+
+```powershell
+# Deploy to staging (installs AIO extension, MQTT broker, pipelines, simulator, alert-processor)
+.\demo0-iot-backbone\infra\deploy-iot-backbone.ps1 -EnvFile .env.staging
+
+# Dry-run to preview all commands first
+.\demo0-iot-backbone\infra\deploy-iot-backbone.ps1 -EnvFile .env.staging -DryRun
+```
+
+### 0.3 Verify IoT Backbone
+
+```powershell
+# Check all pods are Running
+kubectl get pods -n azure-iot-operations
+
+# Verify MQTT broker is accepting connections
+kubectl port-forward svc/geoint-broker 1883:1883 -n azure-iot-operations
+# In a second terminal: mosquitto_pub -h localhost -t "test/ping" -m "hello"
+
+# Check alert processor health
+kubectl port-forward svc/alert-processor 8080:8080 -n azure-iot-operations
+# Open: http://localhost:8080/health
+# Live alerts: http://localhost:8080/alerts
+```
+
+See [demo0-iot-backbone/README.md](../demo0-iot-backbone/README.md) for full IoT Backbone documentation including scenario switching, MQTT topic reference, and Grafana dashboard setup.
 
 ## Step 1: Deploy Infrastructure
 
@@ -125,6 +166,7 @@ Open each demo in a browser:
 
 | Demo | URL |
 |------|-----|
+| IoT Backbone (Alert Processor) | `http://localhost:8080/alerts` (port-forward) |
 | AI Vision Pipeline | `http://<node1-ip>:8081` |
 | Geospatial Platform | `http://<node1-ip>:8083` |
 | 3D Tactical Globe | `http://<node2-ip>:8085` |
@@ -133,5 +175,9 @@ Open each demo in a browser:
 ## Teardown
 
 ```powershell
+# Tear down Demo 0 (IoT Backbone)
+.\demo0-iot-backbone\infra\deploy-iot-backbone.ps1 -EnvFile .env.staging -Teardown
+
+# Tear down remaining infrastructure
 az group delete --name $rg --yes --no-wait
 ```
