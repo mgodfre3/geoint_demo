@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.3.11
+description: An installation package for the AIO Broker
+name: aio-broker
+type: application
+version: 1.3.11

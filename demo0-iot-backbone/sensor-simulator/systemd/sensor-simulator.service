@@ -1,0 +1,16 @@
+[Unit]
+Description=GEOINT Demo Sensor Simulator (MQTT publisher)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/geoint/demo0-iot-backbone/sensor-simulator
+EnvironmentFile=/opt/geoint/demo0-iot-backbone/sensor-simulator/systemd/sensor-simulator.env
+ExecStart=/usr/bin/python simulator.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: video-indexer
+  labels:
+    app.kubernetes.io/part-of: geoint-demo
+    app.kubernetes.io/component: demo5-video-indexer

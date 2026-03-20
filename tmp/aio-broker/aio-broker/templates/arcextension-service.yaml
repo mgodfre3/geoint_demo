@@ -1,0 +1,18 @@
+{{- if (((.Values)).Azure).Extension }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector-service
+  labels:
+    app.kubernetes.io/part-of: aio
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+spec:
+  type: ClusterIP
+  ports:
+    - name: otel-http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+  selector:
+    app: aio-broker-operator
+{{- end }}

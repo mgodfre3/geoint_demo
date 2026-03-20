@@ -1,0 +1,222 @@
+{{- $otlpTrustBundle := default dict .Values.otlpTrustBundle }}
+{{- $otlpTrustBundleConfigMap := default dict $otlpTrustBundle.configMap }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aio-broker-operator
+  namespace: {{ $.Release.Namespace | default "default" | quote }}
+  labels:
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+    app: aio-broker-operator
+    app.kubernetes.io/part-of: aio
+spec:
+  selector:
+    matchLabels:
+      app: aio-broker-operator
+  replicas: 1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: aio-broker-operator
+        tier: operator
+        app.kubernetes.io/part-of: aio
+        app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+    spec:
+{{- if ((.Values).image).imagePullSecrets }}
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+      serviceAccountName: aio-broker-operator
+      serviceAccount: aio-broker-operator
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: aio-broker-operator
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+# Check Global Image containerRegistry, If Tag present use it. Otherwise use Chart version
+# Check Image containerRegistry, If Tag present use it. Otherwise use Chart version
+# If no containerRegistry, Check Global Image tag. If present use it. Otherwise use Image Tag, If present use it. Otherwise use Chart version
+{{- if ((.Values).image).containerRegistry }}
+{{- if ((.Values).image).tag }}
+          image: "{{ .Values.image.containerRegistry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{ else }}
+          image: "{{ .Values.image.containerRegistry }}/{{ .Values.image.repository }}:{{ .Chart.Version }}"
+{{- end }}
+{{- else if ((.Values).image).tag }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- else }}
+          image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
+{{- end }}
+          args:
+            - operator
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /azure-arc
+              name: aio-broker-arc-config
+            - mountPath: /var/run/secrets
+              name: webhook-certs
+            - mountPath: /version
+              name: aio-broker-version-config
+{{- if and (not (.Values).otlpInsecureGrpc) $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+            - mountPath: /mnt/certs/1p-otel-collector
+              name: first-party-otel-collector-trust-bundle
+              readOnly: true
+{{- end }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+            - mountPath: /var/run/secrets/first-party-otel-collector-tokens
+              name: first-party-otel-collector-tokens
+              readOnly: true
+{{- end }}
+          startupProbe:
+            exec:
+              command:
+                - /bin/main
+                - startup-probe
+            failureThreshold: 1800
+            periodSeconds: 1
+          env:
+            - name: AIO_BROKER_LOG
+              value: {{ .Values.operator.log_level }}
+            - name: ADMISSION_WEBHOOK_ENABLED
+              value: '{{ .Values.operator.admissionWebhookEnabled }}'
+            - name: CONVERSION_WEBHOOK_ENABLED
+              value: '{{ .Values.operator.conversionWebhookEnabled }}'
+            - name: DEFAULT_VERSION
+              value: {{ .Chart.Version }}
+            - name: DEFAULT_CONTAINER_REGISTRY
+{{- if ((.Values).image).containerRegistry }}
+              value: {{ .Values.image.containerRegistry }}
+{{- end }}
+            - name: DEFAULT_CONTAINER_TAG
+{{- if ((.Values).image).tag }}
+              value: {{ .Values.image.tag }}
+{{- else }}
+              value: {{ .Chart.Version }}
+{{- end }}
+            - name: DEFAULT_REPOSITORY
+              value: {{ .Values.image.repository }}
+{{- if ((.Values).image).imagePullSecrets }}
+            - name: DEFAULT_PULL_SECRETS_REF
+              value: {{ include "extractImageValuesToString" (dict "values" .Values.image.imagePullSecrets) | quote }}
+{{- end }}
+{{- if ((.Values).image).pullPolicy }}
+            - name: DEFAULT_IMAGE_PULL_POLICY
+              value: {{ .Values.image.pullPolicy }}
+{{- end }}
+{{- if not ((.Values.jobs).preUpgrade) }}
+            - name: PRE_UPGRADE
+              value: "false"
+{{- end }}
+{{- if ((.Values).operator).firstPartyMetricsOn }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+            - name: AIO_BROKER_AZURE_EXTENSION_RESOURCEID
+              value: {{ .Values.Azure.Extension.ResourceId }}
+            - name: AIO_BROKER_FIRST_PARTY_METRIC_EXPORT_AUTH_ENABLED
+              value: "true"
+{{- end }}
+
+{{- if (.Values).otlpMetricsEndpointGrpc }}
+{{- if (.Values).otlpInsecureGrpc }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+              value:  http://{{ .Values.otlpMetricsEndpointGrpc }}
+{{- else }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+              value: https://{{ .Values.otlpMetricsEndpointGrpc }}
+{{- if and $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+            - name: AIO_BROKER_FIRST_PARTY_OTEL_COLLECTOR_TRUST_BUNDLE_CONFIG_MAP_NAME
+              value: {{ $otlpTrustBundleConfigMap.name }}
+            - name: AIO_BROKER_FIRST_PARTY_OTEL_COLLECTOR_TRUST_BUNDLE_CONFIG_MAP_KEY
+              value: {{ $otlpTrustBundleConfigMap.key }}
+{{- $ca_cert_path := printf "/mnt/certs/1p-otel-collector/%s" $otlpTrustBundleConfigMap.key }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_COLLECTOR_CA_CERT_PATH
+              value: {{ $ca_cert_path }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+# First party logs
+{{- if ((.Values).operator).firstPartyLogsOn }}
+
+{{- if (((.Values).Azure).Extension).ResourceId }}
+            - name: AIO_BROKER_FIRST_PARTY_LOG_EXPORT_AUTH_ENABLED
+              value: "true"
+{{- end }}
+
+{{- if (.Values).otlpLogsEndpointGrpc }}
+{{- if (.Values).otlpInsecureGrpc }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_ENDPOINT
+              value:  http://{{ .Values.otlpLogsEndpointGrpc }}
+{{- else }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_ENDPOINT
+              value: https://{{ .Values.otlpLogsEndpointGrpc }}
+{{- end }}
+
+{{- if and (not (.Values).otlpInsecureGrpc)  $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+
+{{- $ca_cert_path := printf "/mnt/certs/1p-otel-collector/%s" $otlpTrustBundleConfigMap.key }}
+            - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_COLLECTOR_CA_CERT_PATH
+              value: {{ $ca_cert_path }}
+{{- end }}
+
+{{- end }}
+{{- end }}
+
+{{- if (((.Values).observability).metrics).openTelemetryCollectorAddress }}
+            - name: AIO_BROKER_THIRD_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+              value: http://{{ .Values.observability.metrics.openTelemetryCollectorAddress }}
+{{- end }}
+{{- if (((.Values).observability).metrics).exportIntervalSeconds }}
+            - name: AIO_BROKER_THIRD_PARTY_METRIC_EXPORT_INTERVAL_SECONDS
+              value: {{ .Values.observability.metrics.exportIntervalSeconds | quote}}
+{{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: aio-broker-arc-config
+          configMap:
+            name: aio-broker-arc-config
+            optional: true
+        # Certs are to be stored in this volume
+        - name: webhook-certs
+          emptyDir: {}
+        - name: aio-broker-version-config
+          configMap:
+            name: aio-broker-version-config
+            optional: false
+{{- if and (not (.Values).otlpInsecureGrpc) $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+        - name: first-party-otel-collector-trust-bundle
+          configMap:
+            name: {{ $otlpTrustBundleConfigMap.name }}
+            items:
+              - key: {{ $otlpTrustBundleConfigMap.key }}
+                path: {{ $otlpTrustBundleConfigMap.key }}
+{{- end }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+        - name: first-party-otel-collector-tokens
+          projected:
+            sources:
+            - serviceAccountToken:
+                audience: arc-diagnostics:{{ .Values.Azure.Extension.ResourceId | lower }}
+                expirationSeconds: 3600
+                path: default
+{{- end }}

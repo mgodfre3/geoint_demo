@@ -1,0 +1,156 @@
+{{- if (.Values.jobs).deleteCrd }}
+{{- $otlpTrustBundle := default dict .Values.otlpTrustBundle }}
+{{- $otlpTrustBundleConfigMap := default dict $otlpTrustBundle.configMap }}
+# This Job will try to delete the aio-broker-operator, remove the finalizers delete all the crds installed right before deleting the resources on uninstall.
+# There can be a chance that the job can fail, the user needs to manually delete the crds then.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aio-broker-job-delete-crds
+  namespace: {{ $.Release.Namespace | default "default" | quote }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "1"
+spec:
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/part-of: aio
+        app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+    spec:
+      containers:
+      - name: pre-delete
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+{{- if ((.Values).image).containerRegistry }}
+{{- if ((.Values).image).tag }}
+        image: "{{ .Values.image.containerRegistry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{ else }}
+        image: "{{ .Values.image.containerRegistry }}/{{ .Values.image.repository }}:{{ .Chart.Version }}"
+{{- end }}
+{{- else if ((.Values).image).tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- else }}
+        image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+{{- if and (not (.Values).otlpInsecureGrpc) $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+          - mountPath: /mnt/certs/1p-otel-collector
+            name: first-party-otel-collector-trust-bundle
+            readOnly: true
+{{- end }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+          - mountPath: /var/run/secrets/first-party-otel-collector-tokens
+            name: first-party-otel-collector-tokens
+            readOnly: true
+{{- end }}
+        command:
+          - /bin/main
+          - delete-crds
+        env:
+          - name: AIO_BROKER_LOG
+            value: {{ .Values.operator.log_level }}
+          - name: DEFAULT_VERSION
+            value: {{ .Chart.Version }}
+{{- if ((.Values).operator).firstPartyMetricsOn }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+          - name: AIO_BROKER_AZURE_EXTENSION_RESOURCEID
+            value: {{ .Values.Azure.Extension.ResourceId }}
+{{- end }}
+
+{{- if (((.Values).Azure).Extension).ResourceId }}
+          - name: AIO_BROKER_FIRST_PARTY_LOG_EXPORT_AUTH_ENABLED
+            value: "true"
+          - name: AIO_BROKER_FIRST_PARTY_METRIC_EXPORT_AUTH_ENABLED
+            value: "true"
+{{- end }}
+
+{{- if (.Values).otlpMetricsEndpointGrpc }}
+{{- if (.Values).otlpInsecureGrpc }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+            value:  http://{{ .Values.otlpMetricsEndpointGrpc }}
+{{- else }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+            value: https://{{ .Values.otlpMetricsEndpointGrpc }}
+{{- if and $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+          - name: AIO_BROKER_FIRST_PARTY_OTEL_COLLECTOR_TRUST_BUNDLE_CONFIG_MAP_NAME
+            value: {{ $otlpTrustBundleConfigMap.name }}
+          - name: AIO_BROKER_FIRST_PARTY_OTEL_COLLECTOR_TRUST_BUNDLE_CONFIG_MAP_KEY
+            value: {{ $otlpTrustBundleConfigMap.key }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+# First party logs
+{{- if ((.Values).operator).firstPartyLogsOn }}
+{{- if (.Values).otlpLogsEndpointGrpc }}
+{{- if (.Values).otlpInsecureGrpc }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_ENDPOINT
+            value:  http://{{ .Values.otlpLogsEndpointGrpc }}
+{{- else }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_ENDPOINT
+            value: https://{{ .Values.otlpLogsEndpointGrpc }}
+{{- end }}
+
+{{- if and (not (.Values).otlpInsecureGrpc)  $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+
+{{- $ca_cert_path := printf "/mnt/certs/1p-otel-collector/%s" $otlpTrustBundleConfigMap.key }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_METRIC_COLLECTOR_CA_CERT_PATH
+            value: {{ $ca_cert_path }}
+          - name: AIO_BROKER_FIRST_PARTY_OTLP_GRPC_LOG_COLLECTOR_CA_CERT_PATH
+            value: {{ $ca_cert_path }}
+{{- end }}
+
+{{- end }}
+{{- end }}
+
+{{- if (((.Values).observability).metrics).openTelemetryCollectorAddress }}
+          - name: AIO_BROKER_THIRD_PARTY_OTLP_GRPC_METRIC_ENDPOINT
+            value: http://{{ .Values.observability.metrics.openTelemetryCollectorAddress }}
+{{- end }}
+{{- if (((.Values).observability).metrics).exportIntervalSeconds }}
+          - name: AIO_BROKER_THIRD_PARTY_METRIC_EXPORT_INTERVAL_SECONDS
+            value: {{ .Values.observability.metrics.exportIntervalSeconds | quote}}
+{{- end }}
+      restartPolicy: Never
+      serviceAccountName: aio-broker-operator
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+{{- if and (not (.Values).otlpInsecureGrpc) $otlpTrustBundleConfigMap.name $otlpTrustBundleConfigMap.key }}
+        - name: first-party-otel-collector-trust-bundle
+          configMap:
+            name: {{ $otlpTrustBundleConfigMap.name }}
+            items:
+              - key: {{ $otlpTrustBundleConfigMap.key }}
+                path: {{ $otlpTrustBundleConfigMap.key }}
+{{- end }}
+{{- if (((.Values).Azure).Extension).ResourceId }}
+        - name: first-party-otel-collector-tokens
+          projected:
+            sources:
+            - serviceAccountToken:
+                audience: arc-diagnostics:{{ .Values.Azure.Extension.ResourceId | lower }}
+                expirationSeconds: 3600
+                path: default
+{{- end }}
+{{- end }}

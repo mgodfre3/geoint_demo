@@ -1,0 +1,43 @@
+# Default values for MQ operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  containerRegistry: mcr.microsoft.com
+  repository: azureiotoperations/common-operator
+  pullPolicy: IfNotPresent
+operator:
+  log_level: "info"
+  firstPartyLogsOn: true
+  firstPartyMetricsOn: true
+  admissionWebhookEnabled: true
+  conversionWebhookEnabled: true
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+podSecurityContext:
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  runAsNonRoot: true
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  runAsUser: 65532
+  runAsGroup: 65532
+  runAsNonRoot: true
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+resources: {}
+nodeSelector:
+  "kubernetes.io/os": linux
+tolerations: []
+affinity: {}
+jobs:
+  deleteCrd: true
+  preUpgrade: true
+  upgradeStatus: true

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aio-broker-operator
+  namespace: {{ $.Release.Namespace | default "default" | quote }}
+  labels:
+    app.kubernetes.io/part-of: aio
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aio-broker-operator
+  labels:
+    app.kubernetes.io/part-of: aio
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "get", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["list", "get", "create", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list", "get", "create", "patch", "delete", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+    verbs: ["create", "get", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "deployments", "daemonsets"]
+    verbs: ["list", "get", "create", "delete", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "configmaps"]
+    verbs: ["list", "get", "create", "patch", "delete"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["mqttbroker.iotoperations.azure.com"]
+    resources:
+      [
+        "brokers",
+        "brokerlisteners",
+        "brokerauthentications",
+        "brokerauthorizations",
+      ]
+    verbs: ["list", "get", "patch", "watch"]
+  - apiGroups: ["mqttbroker.iotoperations.azure.com"]
+    resources: ["brokerdiagnostics"]
+    verbs: ["list", "get", "watch"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "issuers"]
+    verbs: ["list", "get", "create", "patch", "delete"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["clusterissuers"]
+    verbs: ["get"]
+  - apiGroups: ["mqttbroker.iotoperations.azure.com"]
+    resources:
+      [
+        "brokers/status",
+        "brokerlisteners/status",
+        "brokerauthentications/status",
+        "brokerauthorizations/status",
+      ]
+    verbs: ["list", "get", "create", "update", "patch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["list", "get"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    resourceNames:
+      - "brokers.mqttbroker.iotoperations.azure.com"
+      - "brokerauthentications.mqttbroker.iotoperations.azure.com"
+      - "brokerauthorizations.mqttbroker.iotoperations.azure.com"
+      - "brokerlisteners.mqttbroker.iotoperations.azure.com"
+    verbs: ["list", "get", "create", "update", "delete", "patch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["list", "get", "create", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["list", "delete"]
+  - apiGroups: ["namespaces.deviceregistry.microsoft.com"]
+    resources: ["devices"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aio-broker-operator
+  labels:
+    app.kubernetes.io/part-of: aio
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aio-broker-operator
+subjects:
+  - kind: ServiceAccount
+    name: aio-broker-operator
+    namespace: {{ $.Release.Namespace | default "default" | quote }}
+

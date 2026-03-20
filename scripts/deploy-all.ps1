@@ -235,6 +235,15 @@ if ($aksExists) {
     Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $CustomLocationId --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
 }
 
+# Step 4.5: Deploy Video Indexer Extension (if configured)
+$ViAccountId = $envVars['VI_ACCOUNT_ID']
+if ($ViAccountId) {
+    Write-Host "[4.5/5] Deploying Video Indexer extension..." -ForegroundColor Yellow
+    & "$PSScriptRoot\..\demo5-video-indexer\scripts\deploy-vi-extension.ps1" -EnvFile $EnvFile
+} else {
+    Write-Host "[4.5/5] Skipping Video Indexer — VI_ACCOUNT_ID not set" -ForegroundColor Gray
+}
+
 # Step 5: Seed sample data (only if services are running)
 Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
 & "$PSScriptRoot\seed-data.ps1"
@@ -245,5 +254,6 @@ Write-Host "Demo 1 (Vision Pipeline): http://$($envVars['AKS_WORKER_IP']):30081"
 Write-Host "Demo 2 (Geo Platform):    http://$($envVars['VM_GEOSERVER_IP']):8083"
 Write-Host "Demo 3 (Tactical Globe):  http://$($envVars['VM_GLOBE_IP']):8085"
 Write-Host "Demo 4 (AI Assistant):    http://$($envVars['AKS_WORKER_IP']):30087"
+Write-Host "Demo 5 (Video Indexer):   https://$($envVars['VI_ENDPOINT_URI'])"
 Write-Host ""
 Write-Host "Kiosk Launcher:           scripts\kiosk-launcher.html"

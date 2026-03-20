@@ -1,0 +1,10 @@
+{{- if .Values.azure }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aio-broker-arc-config
+  namespace: {{ $.Release.Namespace | default "default" | quote }}
+data:
+  aio-broker-arc-config.yaml: |
+{{ .Values.azure | toYaml | trim | indent 4 }}
+{{- end }}

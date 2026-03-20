@@ -8,3 +8,4 @@ resources:
   - demo4-ai-assistant/namespace.yaml
   - demo4-ai-assistant/deployment.yaml
   - demo4-ai-assistant/service.yaml
+  - demo5-video-indexer/namespace.yaml

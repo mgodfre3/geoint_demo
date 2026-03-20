@@ -1,0 +1,2049 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: brokerauthorizations.mqttbroker.iotoperations.azure.com
+spec:
+  group: mqttbroker.iotoperations.azure.com
+  names:
+    categories: []
+    kind: BrokerAuthorization
+    plural: brokerauthorizations
+    shortNames:
+    - brokerauthz
+    singular: brokerauthorization
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.runtime.phase
+      name: Status
+      type: string
+    - jsonPath: .status.runtime.output
+      name: Status Description
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BrokerAuthorizationSpec via `CustomResource`
+        properties:
+          spec:
+            description: Spec defines the desired identities of MQTT broker authorization policies.
+            properties:
+              authorizationPolicies:
+                description: The list of authorization policies supported by the Authorization Resource.
+                properties:
+                  cache:
+                    default: Enabled
+                    description: Enable caching of the authorization rules.
+                    enum:
+                    - Enabled
+                    - enabled
+                    - Disabled
+                    - disabled
+                    type: string
+                  rules:
+                    description: The authorization rules to follow. If no rule is set, but Authorization Resource is used that would mean `DenyAll`.
+                    items:
+                      properties:
+                        brokerResources:
+                          description: Give access to MQTT broker methods and topics.
+                          items:
+                            properties:
+                              clientIds:
+                                default: []
+                                description: A list of client IDs that match the clients. The client IDs are case-sensitive and must match the client IDs provided by the clients during connection. This subfield may be set if the method is Connect.
+                                items:
+                                  type: string
+                                type: array
+                              method:
+                                description: Give access for a MQTT method (i.e., Connect, Subscribe, or Publish).
+                                enum:
+                                - Connect
+                                - connect
+                                - Publish
+                                - publish
+                                - Subscribe
+                                - subscribe
+                                type: string
+                              topics:
+                                default: []
+                                description: A list of topics or topic patterns that match the topics that the clients can publish or subscribe to. This subfield is required if the method is Publish or Subscribe.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - method
+                            type: object
+                          type: array
+                        principals:
+                          description: Give access to clients based on the following properties.
+                          properties:
+                            attributes:
+                              default: []
+                              description: A list of key-value pairs that match the attributes of the clients. The attributes are case-sensitive and must match the attributes provided by the clients during authentication.
+                              items:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              type: array
+                            clientIds:
+                              default: []
+                              description: A list of client IDs that match the clients. The client IDs are case-sensitive and must match the client IDs provided by the clients during connection.
+                              items:
+                                type: string
+                              type: array
+                            usernames:
+                              default: []
+                              description: A list of usernames that match the clients. The usernames are case-sensitive and must match the usernames provided by the clients during authentication.
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        stateStoreResources:
+                          description: Give access to the state store resources.
+                          items:
+                            properties:
+                              keyType:
+                                description: Allowed keyTypes pattern, string, binary. The key type used for matching, for example pattern tries to match the key to a glob-style pattern and string checks key is equal to value provided in keys.
+                                enum:
+                                - Pattern
+                                - pattern
+                                - String
+                                - string
+                                - Binary
+                                - binary
+                                type: string
+                              keys:
+                                description: Give access to state store keys for the corresponding principals defined. When key type is pattern set glob-style pattern (e.g., '*', 'clients/*').
+                                items:
+                                  type: string
+                                type: array
+                              method:
+                                description: Give access for `Read`, `Write` and `ReadWrite` access level.
+                                enum:
+                                - Read
+                                - read
+                                - Write
+                                - write
+                                - ReadWrite
+                                - readWrite
+                                type: string
+                            required:
+                            - keyType
+                            - keys
+                            - method
+                            type: object
+                          nullable: true
+                          type: array
+                      required:
+                      - brokerResources
+                      - principals
+                      type: object
+                    nullable: true
+                    type: array
+                type: object
+              lastTransitionTime:
+                description: Read only property set by User RP of most recent timestamp when a cloud update occurs following the fromat "2024-12-10T16:19:53Z".
+                nullable: true
+                type: string
+              version:
+                description: Read only property set by User RP which iterates when a cloud update occurs.
+                format: uint32
+                minimum: 0.0
+                nullable: true
+                type: integer
+            required:
+            - authorizationPolicies
+            type: object
+          status:
+            nullable: true
+            properties:
+              config:
+                description: Config status used for emitting error details.
+                nullable: true
+                properties:
+                  error:
+                    description: Error details, if an error has occurred.
+                    nullable: true
+                    properties:
+                      code:
+                        description: The HTTP status code generated by the Origin server for this occurrence of the problem.
+                        type: string
+                      details:
+                        description: Provides one or more detailed information about the errors with a well-defined object.
+                        items:
+                          description: Error details to be reported up to the cloud through `ConfigStatusError`.
+                          properties:
+                            code:
+                              description: 'A unique identifier of the error across all the aio components that allows for i18n, with the following pattern: <status-code>.<category-error>.<component-id>.<unique-id>'
+                              type: string
+                            correlationId:
+                              description: A correlation ID to map this specific error instance to an event.
+                              type: string
+                            info:
+                              description: An extensive human-readable details for the error.
+                              nullable: true
+                              type: string
+                            innerError:
+                              additionalProperties:
+                                type: string
+                              description: A service-defined object containing additional debug info.
+                              type: object
+                            message:
+                              description: A short, human-readable sentence that describe the error.
+                              type: string
+                          required:
+                          - code
+                          - correlationId
+                          - innerError
+                          - message
+                          type: object
+                        type: array
+                      message:
+                        description: A short, human-readable summary of the problem type.
+                        type: string
+                    required:
+                    - code
+                    - details
+                    - message
+                    type: object
+                  lastTransitionTime:
+                    description: '`LastTransitionTime` is the timestamp of the most recent transition in the format "2024-12-10T16:19:53Z".'
+                    type: string
+                  version:
+                    description: Version is iterated every time the `ConfigStatus` is updated starting from 1.
+                    format: uint32
+                    minimum: 0.0
+                    type: integer
+                required:
+                - lastTransitionTime
+                - version
+                type: object
+              healthState:
+                description: Health state of the resource after provisioning has completed.
+                nullable: true
+                properties:
+                  lastUpdateTime:
+                    nullable: true
+                    type: string
+                  status:
+                    enum:
+                    - Unknown
+                    - Available
+                    - Degraded
+                    - Unavailable
+                    type: string
+                required:
+                - status
+                type: object
+              provisioningStatus:
+                description: Provisioning status used for signaling to RP that async operation of recieving CR has completed.
+                nullable: true
+                properties:
+                  error:
+                    nullable: true
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                    - code
+                    - message
+                    type: object
+                  failureCause:
+                    nullable: true
+                    type: string
+                  logErrors:
+                    nullable: true
+                    type: boolean
+                  operationId:
+                    type: string
+                  output:
+                    additionalProperties:
+                      type: string
+                    nullable: true
+                    type: object
+                  status:
+                    type: string
+                required:
+                - operationId
+                - status
+                type: object
+              runtime:
+                description: Runtime status used for emitting runtime details.
+                nullable: true
+                properties:
+                  output:
+                    additionalProperties:
+                      type: string
+                    description: The output of the resource when the runtime.phase is not Failed. This is an open key-value pair dictionary and a component owner can have key-value string pairs of their choice.
+                    nullable: true
+                    type: object
+                  phase:
+                    description: Describe the current state phase of the Resource. This can be ideally any descriptive healthy string, but should have the following values for consistency – Running, Connected, Recovering, Waiting, Failed
+                    enum:
+                    - Waiting
+                    - Starting
+                    - Running
+                    - Failed
+                    type: string
+                required:
+                - phase
+                type: object
+            type: object
+        required:
+        - spec
+        title: BrokerAuthorization
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: brokerauthentications.mqttbroker.iotoperations.azure.com
+spec:
+  group: mqttbroker.iotoperations.azure.com
+  names:
+    categories: []
+    kind: BrokerAuthentication
+    plural: brokerauthentications
+    shortNames:
+    - brokerauthn
+    singular: brokerauthentication
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.runtime.phase
+      name: Status
+      type: string
+    - jsonPath: .status.runtime.output
+      name: Status Description
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BrokerAuthenticationSpec via `CustomResource`
+        properties:
+          spec:
+            description: Defines a set of MQTT authentication methods to be used on `BrokerListeners`.
+            properties:
+              authenticationMethods:
+                description: Defines a set of MQTT authentication methods to be used on `BrokerListeners`. For each array element one authenticator type supported.
+                items:
+                  oneOf:
+                  - required:
+                    - customSettings
+                  - required:
+                    - serviceAccountTokenSettings
+                  - required:
+                    - x509Settings
+                  properties:
+                    customSettings:
+                      description: Custom authentication configuration.
+                      properties:
+                        auth:
+                          description: Optional authentication needed for authenticating with the custom authentication server.
+                          nullable: true
+                          oneOf:
+                          - required:
+                            - x509
+                          properties:
+                            x509:
+                              description: Authentication with X.509 client credentials.
+                              properties:
+                                secretRef:
+                                  description: Kubernetes secret containing an X.509 client certificate. This is a reference to the secret through an identifying name, not the secret itself.
+                                  type: string
+                              required:
+                              - secretRef
+                              type: object
+                          type: object
+                        caCertConfigMap:
+                          description: Optional CA certificate for validating the custom authentication server's certificate.
+                          nullable: true
+                          type: string
+                        endpoint:
+                          description: Endpoint of the custom authentication server. Must be an HTTPS endpoint.
+                          type: string
+                        headers:
+                          additionalProperties:
+                            type: string
+                          description: Additional HTTP headers to pass to the custom authentication server.
+                          type: object
+                      required:
+                      - endpoint
+                      type: object
+                    method:
+                      description: Selector used to determine which of the oneOf values to use.
+                      type: string
+                    serviceAccountTokenSettings:
+                      description: SAT authentication configuration.
+                      properties:
+                        audiences:
+                          description: List of allowed audience.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - audiences
+                      type: object
+                    x509Settings:
+                      description: X.509 authentication configuration.
+                      properties:
+                        additionalValidation:
+                          default: none
+                          description: Perform additional validation of the client certificate using the specified method.
+                          enum:
+                          - AzureDeviceRegistry
+                          - none
+                          type: string
+                        authorizationAttributes:
+                          additionalProperties:
+                            properties:
+                              attributes:
+                                additionalProperties:
+                                  type: string
+                                description: Attributes object.
+                                type: object
+                              subject:
+                                description: Subject of the X509 attribute.
+                                type: string
+                            required:
+                            - attributes
+                            - subject
+                            type: object
+                          description: X509 authorization attributes properties.
+                          type: object
+                        trustedClientCaCert:
+                          default: client-ca
+                          description: Name of the trusted client ca cert resource.
+                          type: string
+                      type: object
+                  required:
+                  - method
+                  type: object
+                type: array
+              lastTransitionTime:
+                description: Read only property set by User RP of most recent timestamp when a cloud update occurs following the fromat "2024-12-10T16:19:53Z".
+                nullable: true
+                type: string
+              version:
+                description: Read only property set by User RP which iterates when a cloud update occurs.
+                format: uint32
+                minimum: 0.0
+                nullable: true
+                type: integer
+            required:
+            - authenticationMethods
+            type: object
+          status:
+            nullable: true
+            properties:
+              config:
+                description: Config status used for emitting error details.
+                nullable: true
+                properties:
+                  error:
+                    description: Error details, if an error has occurred.
+                    nullable: true
+                    properties:
+                      code:
+                        description: The HTTP status code generated by the Origin server for this occurrence of the problem.
+                        type: string
+                      details:
+                        description: Provides one or more detailed information about the errors with a well-defined object.
+                        items:
+                          description: Error details to be reported up to the cloud through `ConfigStatusError`.
+                          properties:
+                            code:
+                              description: 'A unique identifier of the error across all the aio components that allows for i18n, with the following pattern: <status-code>.<category-error>.<component-id>.<unique-id>'
+                              type: string
+                            correlationId:
+                              description: A correlation ID to map this specific error instance to an event.
+                              type: string
+                            info:
+                              description: An extensive human-readable details for the error.
+                              nullable: true
+                              type: string
+                            innerError:
+                              additionalProperties:
+                                type: string
+                              description: A service-defined object containing additional debug info.
+                              type: object
+                            message:
+                              description: A short, human-readable sentence that describe the error.
+                              type: string
+                          required:
+                          - code
+                          - correlationId
+                          - innerError
+                          - message
+                          type: object
+                        type: array
+                      message:
+                        description: A short, human-readable summary of the problem type.
+                        type: string
+                    required:
+                    - code
+                    - details
+                    - message
+                    type: object
+                  lastTransitionTime:
+                    description: '`LastTransitionTime` is the timestamp of the most recent transition in the format "2024-12-10T16:19:53Z".'
+                    type: string
+                  version:
+                    description: Version is iterated every time the `ConfigStatus` is updated starting from 1.
+                    format: uint32
+                    minimum: 0.0
+                    type: integer
+                required:
+                - lastTransitionTime
+                - version
+                type: object
+              healthState:
+                description: Health state of the resource after provisioning has completed.
+                nullable: true
+                properties:
+                  lastUpdateTime:
+                    nullable: true
+                    type: string
+                  status:
+                    enum:
+                    - Unknown
+                    - Available
+                    - Degraded
+                    - Unavailable
+                    type: string
+                required:
+                - status
+                type: object
+              provisioningStatus:
+                description: Provisioning status used for signaling to RP that async operation of recieving CR has completed.
+                nullable: true
+                properties:
+                  error:
+                    nullable: true
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                    - code
+                    - message
+                    type: object
+                  failureCause:
+                    nullable: true
+                    type: string
+                  logErrors:
+                    nullable: true
+                    type: boolean
+                  operationId:
+                    type: string
+                  output:
+                    additionalProperties:
+                      type: string
+                    nullable: true
+                    type: object
+                  status:
+                    type: string
+                required:
+                - operationId
+                - status
+                type: object
+              runtime:
+                description: Runtime status used for emitting runtime details.
+                nullable: true
+                properties:
+                  output:
+                    additionalProperties:
+                      type: string
+                    description: The output of the resource when the runtime.phase is not Failed. This is an open key-value pair dictionary and a component owner can have key-value string pairs of their choice.
+                    nullable: true
+                    type: object
+                  phase:
+                    description: Describe the current state phase of the Resource. This can be ideally any descriptive healthy string, but should have the following values for consistency – Running, Connected, Recovering, Waiting, Failed
+                    enum:
+                    - Waiting
+                    - Starting
+                    - Running
+                    - Failed
+                    type: string
+                required:
+                - phase
+                type: object
+            type: object
+        required:
+        - spec
+        title: BrokerAuthentication
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: brokerlisteners.mqttbroker.iotoperations.azure.com
+spec:
+  group: mqttbroker.iotoperations.azure.com
+  names:
+    categories: []
+    kind: BrokerListener
+    plural: brokerlisteners
+    shortNames:
+    - brokerlistener
+    singular: brokerlistener
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The Broker it is associated with
+      jsonPath: .spec.brokerRef
+      name: Broker Reference
+      type: string
+    - jsonPath: .status.runtime.phase
+      name: Status
+      type: string
+    - jsonPath: .status.runtime.output
+      name: Status Description
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BrokerListenerSpec via `CustomResource`
+        properties:
+          spec:
+            description: Defines an MQTT broker listener. A listener is a collection of ports on which the broker accepts connections from clients.
+            properties:
+              brokerRef:
+                description: Broker associated with this listener. A Kubernetes `ownerReference` may be used instead, so this field is optional.
+                nullable: true
+                type: string
+              lastTransitionTime:
+                description: Read only property set by User RP of most recent timestamp when a cloud update occurs following the fromat "2024-12-10T16:19:53Z".
+                nullable: true
+                type: string
+              ports:
+                description: Ports on which this listener accepts client connections.
+                items:
+                  description: Defines a TCP port on which a `BrokerListener` listens.
+                  properties:
+                    authenticationRef:
+                      description: Reference to client authentication settings. Omit to disable authentication.
+                      nullable: true
+                      type: string
+                    authorizationRef:
+                      description: Reference to client authorization settings. Omit to disable authorization.
+                      nullable: true
+                      type: string
+                    nodePort:
+                      description: Kubernetes node port. Only relevant when this port is associated with a `NodePort` listener.
+                      format: uint16
+                      maximum: 65535.0
+                      minimum: 0.0
+                      nullable: true
+                      type: integer
+                    port:
+                      description: TCP port for accepting client connections.
+                      format: uint16
+                      maximum: 65535.0
+                      minimum: 0.0
+                      type: integer
+                    protocol:
+                      default: Mqtt
+                      description: Protocol to use for client connections.
+                      enum:
+                      - Mqtt
+                      - mqtt
+                      - WebSockets
+                      - webSockets
+                      type: string
+                    tls:
+                      description: TLS server certificate settings for this port. Omit to disable TLS.
+                      oneOf:
+                      - required:
+                        - certManagerCertificateSpec
+                      - required:
+                        - manual
+                      properties:
+                        certManagerCertificateSpec:
+                          description: Automatic TLS server certificate management with cert-manager.
+                          properties:
+                            duration:
+                              description: Lifetime of certificate. Must be specified using a Go time. Duration format (h|m|s). E.g. 240h for 240 hours and 45m for 45 minutes.
+                              nullable: true
+                              type: string
+                            issuerRef:
+                              description: cert-manager issuerRef.
+                              properties:
+                                group:
+                                  default: cert-manager.io
+                                  description: group of issuer.
+                                  type: string
+                                kind:
+                                  description: kind of issuer.
+                                  enum:
+                                  - Issuer
+                                  - ClusterIssuer
+                                  type: string
+                                name:
+                                  description: name of issuer.
+                                  type: string
+                              required:
+                              - kind
+                              - name
+                              type: object
+                            privateKey:
+                              default:
+                                algorithm: Ec256
+                                rotationPolicy: Always
+                              description: Type of certificate private key.
+                              properties:
+                                algorithm:
+                                  description: Private key algorithm.
+                                  enum:
+                                  - Ec256
+                                  - ec256
+                                  - Ec384
+                                  - ec384
+                                  - Ec521
+                                  - ec521
+                                  - Ed25519
+                                  - ed25519
+                                  - Rsa2048
+                                  - rsa2048
+                                  - Rsa4096
+                                  - rsa4096
+                                  - Rsa8192
+                                  - rsa8192
+                                  type: string
+                                rotationPolicy:
+                                  description: Private key rotation policy.
+                                  enum:
+                                  - Always
+                                  - always
+                                  - Never
+                                  - never
+                                  type: string
+                              required:
+                              - algorithm
+                              - rotationPolicy
+                              type: object
+                            renewBefore:
+                              description: When to begin renewing certificate. Must be specified using a Go time. Duration format (h|m|s). E.g. 240h for 240 hours and 45m for 45 minutes.
+                              nullable: true
+                              type: string
+                            san:
+                              description: Additional Subject Alternative Names (SANs) to include in the certificate.
+                              properties:
+                                dns:
+                                  default: []
+                                  description: DNS SANs.
+                                  items:
+                                    type: string
+                                  type: array
+                                ip:
+                                  default: []
+                                  description: IP address SANs.
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            secretName:
+                              description: Secret for storing server certificate. Any existing data will be overwritten. This is a reference to the secret through an identifying name, not the secret itself.
+                              nullable: true
+                              type: string
+                          required:
+                          - issuerRef
+                          type: object
+                        manual:
+                          description: Manual TLS server certificate management through a defined secret.
+                          properties:
+                            secretRef:
+                              description: secret containing TLS cert.
+                              type: string
+                          required:
+                          - secretRef
+                          type: object
+                        mode:
+                          description: Mode of TLS server certificate management.
+                          type: string
+                      required:
+                      - mode
+                      type: object
+                  required:
+                  - port
+                  type: object
+                type: array
+              serviceName:
+                description: Kubernetes Service name of this listener.
+                nullable: true
+                type: string
+              serviceType:
+                default: ClusterIp
+                description: Kubernetes Service type of this listener.
+                enum:
+                - LoadBalancer
+                - loadBalancer
+                - ClusterIp
+                - clusterIp
+                - NodePort
+                - nodePort
+                type: string
+              version:
+                description: Read only property set by User RP which iterates when a cloud update occurs.
+                format: uint32
+                minimum: 0.0
+                nullable: true
+                type: integer
+            required:
+            - ports
+            type: object
+          status:
+            nullable: true
+            properties:
+              config:
+                description: Config status used for emitting error details.
+                nullable: true
+                properties:
+                  error:
+                    description: Error details, if an error has occurred.
+                    nullable: true
+                    properties:
+                      code:
+                        description: The HTTP status code generated by the Origin server for this occurrence of the problem.
+                        type: string
+                      details:
+                        description: Provides one or more detailed information about the errors with a well-defined object.
+                        items:
+                          description: Error details to be reported up to the cloud through `ConfigStatusError`.
+                          properties:
+                            code:
+                              description: 'A unique identifier of the error across all the aio components that allows for i18n, with the following pattern: <status-code>.<category-error>.<component-id>.<unique-id>'
+                              type: string
+                            correlationId:
+                              description: A correlation ID to map this specific error instance to an event.
+                              type: string
+                            info:
+                              description: An extensive human-readable details for the error.
+                              nullable: true
+                              type: string
+                            innerError:
+                              additionalProperties:
+                                type: string
+                              description: A service-defined object containing additional debug info.
+                              type: object
+                            message:
+                              description: A short, human-readable sentence that describe the error.
+                              type: string
+                          required:
+                          - code
+                          - correlationId
+                          - innerError
+                          - message
+                          type: object
+                        type: array
+                      message:
+                        description: A short, human-readable summary of the problem type.
+                        type: string
+                    required:
+                    - code
+                    - details
+                    - message
+                    type: object
+                  lastTransitionTime:
+                    description: '`LastTransitionTime` is the timestamp of the most recent transition in the format "2024-12-10T16:19:53Z".'
+                    type: string
+                  version:
+                    description: Version is iterated every time the `ConfigStatus` is updated starting from 1.
+                    format: uint32
+                    minimum: 0.0
+                    type: integer
+                required:
+                - lastTransitionTime
+                - version
+                type: object
+              healthState:
+                description: Health state of the resource after provisioning has completed.
+                nullable: true
+                properties:
+                  lastUpdateTime:
+                    nullable: true
+                    type: string
+                  status:
+                    enum:
+                    - Unknown
+                    - Available
+                    - Degraded
+                    - Unavailable
+                    type: string
+                required:
+                - status
+                type: object
+              provisioningStatus:
+                description: Provisioning status used for signaling to RP that async operation of recieving CR has completed.
+                nullable: true
+                properties:
+                  error:
+                    nullable: true
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                    - code
+                    - message
+                    type: object
+                  failureCause:
+                    nullable: true
+                    type: string
+                  logErrors:
+                    nullable: true
+                    type: boolean
+                  operationId:
+                    type: string
+                  output:
+                    additionalProperties:
+                      type: string
+                    nullable: true
+                    type: object
+                  status:
+                    type: string
+                required:
+                - operationId
+                - status
+                type: object
+              runtime:
+                description: Runtime status used for emitting runtime details.
+                nullable: true
+                properties:
+                  output:
+                    additionalProperties:
+                      type: string
+                    description: The output of the resource when the runtime.phase is not Failed. This is an open key-value pair dictionary and a component owner can have key-value string pairs of their choice.
+                    nullable: true
+                    type: object
+                  phase:
+                    description: Describe the current state phase of the Resource. This can be ideally any descriptive healthy string, but should have the following values for consistency – Running, Connected, Recovering, Waiting, Failed
+                    enum:
+                    - Waiting
+                    - Starting
+                    - Running
+                    - Failed
+                    type: string
+                required:
+                - phase
+                type: object
+            type: object
+        required:
+        - spec
+        title: BrokerListener
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: brokers.mqttbroker.iotoperations.azure.com
+spec:
+  group: mqttbroker.iotoperations.azure.com
+  names:
+    categories: []
+    kind: Broker
+    plural: brokers
+    shortNames:
+    - broker
+    singular: broker
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: number of frontend copies
+      jsonPath: .spec.cardinality.frontend.replicas
+      name: Frontends
+      type: number
+    - description: number of backend partitions
+      jsonPath: .spec.cardinality.backendChain.partitions
+      name: Backend Partitions
+      type: number
+    - description: Memory profile of Broker
+      jsonPath: .spec.memoryProfile
+      name: Memory Profile
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.runtime.phase
+      name: Status
+      type: string
+    - jsonPath: .status.runtime.output
+      name: Status Description
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BrokerSpec via `CustomResource`
+        properties:
+          spec:
+            description: Spec defines the desired identities of distributed MQTT broker.
+            properties:
+              advanced:
+                default:
+                  clients: null
+                  encryptInternalTraffic: Enabled
+                  tolerations: null
+                description: Advanced settings of Broker.
+                properties:
+                  clients:
+                    description: Configurations related to All Clients.
+                    nullable: true
+                    properties:
+                      maxKeepAliveSeconds:
+                        description: Upper bound of a client's Keep Alive, in seconds.
+                        format: uint16
+                        maximum: 65535.0
+                        minimum: 0.0
+                        nullable: true
+                        type: integer
+                      maxMessageExpirySeconds:
+                        description: Upper bound of Message Expiry Interval, in seconds.
+                        format: uint32
+                        maximum: 4294967295.0
+                        minimum: 1.0
+                        nullable: true
+                        type: integer
+                      maxPacketSizeBytes:
+                        description: Max message size for a packet in Bytes.
+                        format: uint32
+                        maximum: 268435456.0
+                        minimum: 1.0
+                        nullable: true
+                        type: integer
+                      maxReceiveMaximum:
+                        description: Upper bound of Receive Maximum that a client can request in the CONNECT packet. If a client requests a value greater than this, the broker will cap it to this value.
+                        format: uint16
+                        maximum: 65535.0
+                        minimum: 1.0
+                        nullable: true
+                        type: integer
+                      maxSessionExpirySeconds:
+                        description: Upper bound of Session Expiry Interval
+                        format: uint32
+                        maximum: 4294967295.0
+                        minimum: 1.0
+                        nullable: true
+                        type: integer
+                      subscriberQueueLimit:
+                        description: The limit on the number of queued messages for a subscriber.
+                        nullable: true
+                        properties:
+                          length:
+                            default: 1000
+                            description: The maximum length of the queue before messages start getting dropped. If nothing is specified, the default is 1000.
+                            format: int64
+                            maximum: 9.223372036854e18
+                            minimum: 1.0
+                            type: integer
+                          strategy:
+                            default: None
+                            description: The strategy to use for dropping messages from the queue.
+                            enum:
+                            - None
+                            - none
+                            - DropOldest
+                            - dropOldest
+                            type: string
+                        type: object
+                    type: object
+                  encryptInternalTraffic:
+                    default: Enabled
+                    description: The setting to enable or disable encryption of internal Traffic.
+                    enum:
+                    - Enabled
+                    - enabled
+                    - Disabled
+                    - disabled
+                    type: string
+                  internalCerts:
+                    description: Certificate rotation and private key configuration.
+                    properties:
+                      duration:
+                        description: Lifetime of certificate. Must be specified using a Go time. Duration format (h|m|s). E.g. 240h for 240 hours and 45m for 45 minutes.
+                        type: string
+                      privateKey:
+                        description: Type of certificate private key.
+                        properties:
+                          algorithm:
+                            description: Private key algorithm.
+                            enum:
+                            - Ec256
+                            - ec256
+                            - Ec384
+                            - ec384
+                            - Ec521
+                            - ec521
+                            - Ed25519
+                            - ed25519
+                            - Rsa2048
+                            - rsa2048
+                            - Rsa4096
+                            - rsa4096
+                            - Rsa8192
+                            - rsa8192
+                            type: string
+                          rotationPolicy:
+                            description: Private key rotation policy.
+                            enum:
+                            - Always
+                            - always
+                            - Never
+                            - never
+                            type: string
+                        required:
+                        - algorithm
+                        - rotationPolicy
+                        type: object
+                      renewBefore:
+                        description: When to begin renewing certificate. Must be specified using a Go time. Duration format (h|m|s). E.g. 240h for 240 hours and 45m for 45 minutes.
+                        type: string
+                    required:
+                    - duration
+                    - privateKey
+                    - renewBefore
+                    type: object
+                  tolerations:
+                    description: The details of Tolerations that are applied to all Broker pods.
+                    items:
+                      properties:
+                        effect:
+                          description: Toleration effect.
+                          type: string
+                        key:
+                          description: Toleration key.
+                          type: string
+                        operator:
+                          description: Toleration operator like 'Exists', 'Equal' etc.
+                          enum:
+                          - None
+                          - none
+                          - DropOldest
+                          - dropOldest
+                          type: string
+                        value:
+                          description: Toleration Value.
+                          type: string
+                      required:
+                      - effect
+                      - key
+                      - operator
+                      - value
+                      type: object
+                    nullable: true
+                    type: array
+                type: object
+              cardinality:
+                description: The cardinality details of the broker.
+                nullable: true
+                properties:
+                  backendChain:
+                    description: The backend broker desired properties
+                    properties:
+                      partitions:
+                        format: uint8
+                        maximum: 16.0
+                        minimum: 1.0
+                        type: integer
+                      redundancyFactor:
+                        description: The desired numbers of backend replicas (pods) in a physical partition.
+                        format: uint16
+                        maximum: 5.0
+                        minimum: 1.0
+                        type: integer
+                      workers:
+                        default: 1
+                        format: uint8
+                        maximum: 16.0
+                        minimum: 1.0
+                        type: integer
+                    required:
+                    - partitions
+                    - redundancyFactor
+                    type: object
+                  frontend:
+                    description: The frontend desired properties
+                    properties:
+                      replicas:
+                        description: The desired number of frontend instances (pods).
+                        format: uint16
+                        maximum: 16.0
+                        minimum: 1.0
+                        type: integer
+                      workers:
+                        default: 2
+                        format: uint8
+                        maximum: 16.0
+                        minimum: 1.0
+                        type: integer
+                    required:
+                    - replicas
+                    type: object
+                required:
+                - backendChain
+                - frontend
+                type: object
+              diagnostics:
+                default:
+                  logs:
+                    level: info
+                  metrics:
+                    prometheusPort: 9600
+                  selfCheck:
+                    intervalSeconds: 30
+                    mode: Enabled
+                    timeoutSeconds: 60
+                  traces:
+                    cacheSizeMegabytes: 16
+                    mode: Enabled
+                    selfTracing:
+                      intervalSeconds: 30
+                      mode: Enabled
+                    spanChannelCapacity: 1000
+                description: Spec defines the desired identities of MQTT broker diagnostics settings.
+                properties:
+                  logs:
+                    default:
+                      level: info
+                    description: The log settings of the broker.
+                    properties:
+                      level:
+                        default: info
+                        description: The log level. Examples - 'debug', 'info', 'warn', 'error', 'trace'.
+                        type: string
+                    type: object
+                  metrics:
+                    default:
+                      prometheusPort: 9600
+                    description: The metrics properties.
+                    properties:
+                      prometheusPort:
+                        default: 9600
+                        description: The prometheus port to expose the metrics.
+                        format: uint16
+                        maximum: 65535.0
+                        minimum: 0.0
+                        type: integer
+                    type: object
+                  selfCheck:
+                    default:
+                      intervalSeconds: 30
+                      mode: Enabled
+                      timeoutSeconds: 60
+                    description: The self check properties.
+                    properties:
+                      intervalSeconds:
+                        default: 30
+                        description: The self check interval.
+                        format: uint64
+                        maximum: 300.0
+                        minimum: 30.0
+                        type: integer
+                      mode:
+                        default: Enabled
+                        description: The toggle to enable/disable self check.
+                        enum:
+                        - Enabled
+                        - enabled
+                        - Disabled
+                        - disabled
+                        type: string
+                      timeoutSeconds:
+                        default: 60
+                        description: The timeout for self check.
+                        format: uint64
+                        maximum: 1800.0
+                        minimum: 5.0
+                        type: integer
+                    type: object
+                  traces:
+                    default:
+                      cacheSizeMegabytes: 16
+                      mode: Enabled
+                      selfTracing:
+                        intervalSeconds: 30
+                        mode: Enabled
+                      spanChannelCapacity: 1000
+                    description: The trace properties.
+                    properties:
+                      cacheSizeMegabytes:
+                        default: 16
+                        description: The cache size in megabytes.
+                        format: uint32
+                        maximum: 128.0
+                        minimum: 1.0
+                        type: integer
+                      mode:
+                        default: Enabled
+                        description: The toggle to enable/disable traces.
+                        enum:
+                        - Enabled
+                        - enabled
+                        - Disabled
+                        - disabled
+                        type: string
+                      selfTracing:
+                        default:
+                          intervalSeconds: 30
+                          mode: Enabled
+                        description: The self tracing properties.
+                        properties:
+                          intervalSeconds:
+                            default: 30
+                            description: The self tracing interval.
+                            format: uint64
+                            maximum: 300.0
+                            minimum: 1.0
+                            type: integer
+                          mode:
+                            default: Enabled
+                            description: The toggle to enable/disable self tracing.
+                            enum:
+                            - Enabled
+                            - enabled
+                            - Disabled
+                            - disabled
+                            type: string
+                        type: object
+                      spanChannelCapacity:
+                        default: 1000
+                        description: The span channel capacity.
+                        format: uint64
+                        maximum: 100000.0
+                        minimum: 1000.0
+                        type: integer
+                    type: object
+                type: object
+              diskBackedMessageBuffer:
+                description: Settings of Disk Backed Message Buffer.
+                nullable: true
+                properties:
+                  ephemeralVolumeClaimSpec:
+                    description: |-
+                      Use the specified persistent volume claim template to mount a "generic ephemeral volume" for the message buffer.
+
+                      See <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes> for details.
+                    nullable: true
+                    properties:
+                      accessModes:
+                        description: 'accessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
+                        items:
+                          type: string
+                        type: array
+                      dataSource:
+                        description: 'dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified. If the namespace is specified, then dataSourceRef will not be copied to dataSource.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: |-
+                          dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the dataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, when namespace isn't specified in dataSourceRef, both fields (dataSource and dataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. When namespace is specified in dataSourceRef, dataSource isn't set to the same value and must be empty. There are three important differences between dataSource and dataSourceRef: * While dataSource only allows two specific types of objects, dataSourceRef
+                            allows any non-core object, as well as PersistentVolumeClaim objects.
+                          * While dataSource ignores disallowed values (dropping them), dataSourceRef
+                            preserves all values, and generates an error if a disallowed value is
+                            specified.
+                          * While dataSource only allows local objects, dataSourceRef allows objects
+                            in any namespaces.
+                          (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled. (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of resource being referenced Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      resources:
+                        description: 'resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                        properties:
+                          limits:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                      selector:
+                        description: selector is a label query over volumes to consider for binding.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      storageClassName:
+                        description: 'storageClassName is the name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
+                        type: string
+                      volumeAttributesClassName:
+                        description: 'volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it''s not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.'
+                        type: string
+                      volumeMode:
+                        description: volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.
+                        type: string
+                      volumeName:
+                        description: volumeName is the binding reference to the PersistentVolume backing this claim.
+                        type: string
+                    type: object
+                  maxSize:
+                    description: |-
+                      The max size of the message buffer on disk.
+
+                      If a PVC template is specified using one of ephemeralVolumeClaimSpec or persistentVolumeClaimSpec, then this size is used as the request and limit sizes of that template.
+
+                      If neither ephemeralVolumeClaimSpec nor persistentVolumeClaimSpec are specified, then an emptyDir volume is mounted with this size as its limit. See <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir> for details.
+                    type: string
+                  persistentVolumeClaimSpec:
+                    description: Use the specified persistent volume claim template to mount a persistent volume for the message buffer.
+                    nullable: true
+                    properties:
+                      accessModes:
+                        description: 'accessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
+                        items:
+                          type: string
+                        type: array
+                      dataSource:
+                        description: 'dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified. If the namespace is specified, then dataSourceRef will not be copied to dataSource.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: |-
+                          dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the dataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, when namespace isn't specified in dataSourceRef, both fields (dataSource and dataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. When namespace is specified in dataSourceRef, dataSource isn't set to the same value and must be empty. There are three important differences between dataSource and dataSourceRef: * While dataSource only allows two specific types of objects, dataSourceRef
+                            allows any non-core object, as well as PersistentVolumeClaim objects.
+                          * While dataSource ignores disallowed values (dropping them), dataSourceRef
+                            preserves all values, and generates an error if a disallowed value is
+                            specified.
+                          * While dataSource only allows local objects, dataSourceRef allows objects
+                            in any namespaces.
+                          (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled. (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of resource being referenced Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      resources:
+                        description: 'resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                        properties:
+                          limits:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                      selector:
+                        description: selector is a label query over volumes to consider for binding.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      storageClassName:
+                        description: 'storageClassName is the name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
+                        type: string
+                      volumeAttributesClassName:
+                        description: 'volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it''s not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.'
+                        type: string
+                      volumeMode:
+                        description: volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.
+                        type: string
+                      volumeName:
+                        description: volumeName is the binding reference to the PersistentVolume backing this claim.
+                        type: string
+                    type: object
+                required:
+                - maxSize
+                type: object
+              generateResourceLimits:
+                description: This setting controls whether Kubernetes CPU resource limits are requested. Increasing the number of replicas or workers proportionally increases the amount of CPU resources requested. If this setting is enabled and there are insufficient CPU resources, an error will be emitted.
+                nullable: true
+                properties:
+                  cpu:
+                    default: Enabled
+                    description: The toggle to enable/disable cpu resource limits.
+                    enum:
+                    - Enabled
+                    - enabled
+                    - Disabled
+                    - disabled
+                    type: string
+                type: object
+              lastTransitionTime:
+                description: Read only property set by User RP of most recent timestamp when a cloud update occurs following the fromat "2024-12-10T16:19:53Z".
+                nullable: true
+                type: string
+              memoryProfile:
+                default: Medium
+                description: Memory profile of Broker.
+                enum:
+                - Tiny
+                - tiny
+                - Low
+                - low
+                - Medium
+                - medium
+                - High
+                - high
+                type: string
+              persistence:
+                description: |-
+                  Disk persistence configuration.
+
+                  When persistence is enabled, certain items (non-performance-critical data) selected for persistence will reside only on disk. Below are the affected items: Retained messages will be stored on disk only. WILL messages will be stored on disk only. DSS key/value pairs will be stored on disk only, except for performance-critical items like timed locks, which remain in both disk and memory for improved performance.
+
+                  Optional. Everything is in-memory if not set. Note: if configured, all MQTT session states are written to disk.
+                nullable: true
+                properties:
+                  encryption:
+                    default:
+                      mode: Enabled
+                    description: Controls settings related to encryption of the persistence database. Optional, defaults to enabling encryption
+                    properties:
+                      mode:
+                        description: Indicates whether the encryption at rest for the persistent datatabase is enabled. Default is Enabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                    required:
+                    - mode
+                    type: object
+                  maxSize:
+                    description: The max size of the message buffer on disk. If a PVC template is specified using persistentVolumeClaimSpec Then this size is used as the request and limit sizes of that template If a PVC template isn't specified Then local-path provisioner is requested with this size limit Required
+                    type: string
+                  persistentVolumeClaimSpec:
+                    default:
+                      accessModes:
+                      - ReadWriteOncePod
+                    description: |-
+                      Use the specified persistent volume claim template to mount a persistent volume Same object as in diskBackedMessageBuffer, but with a limitation that access modes field must be set to `ReadWriteOncePod`.
+
+                      If unset, a default PVC with default properties will be used. Among other things this PVC will use the cluster default storage class, which may or may not be using a local path provisioner. User is opting in to sub-optimal behavior if they leave this unset or set it without the storage class field, and their cluster default is not a local path class.
+                    properties:
+                      accessModes:
+                        description: 'accessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
+                        items:
+                          type: string
+                        type: array
+                      dataSource:
+                        description: 'dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified. If the namespace is specified, then dataSourceRef will not be copied to dataSource.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: |-
+                          dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the dataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, when namespace isn't specified in dataSourceRef, both fields (dataSource and dataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. When namespace is specified in dataSourceRef, dataSource isn't set to the same value and must be empty. There are three important differences between dataSource and dataSourceRef: * While dataSource only allows two specific types of objects, dataSourceRef
+                            allows any non-core object, as well as PersistentVolumeClaim objects.
+                          * While dataSource ignores disallowed values (dropping them), dataSourceRef
+                            preserves all values, and generates an error if a disallowed value is
+                            specified.
+                          * While dataSource only allows local objects, dataSourceRef allows objects
+                            in any namespaces.
+                          (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled. (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of resource being referenced Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      resources:
+                        description: 'resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                        properties:
+                          limits:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                              type: string
+                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                      selector:
+                        description: selector is a label query over volumes to consider for binding.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      storageClassName:
+                        description: 'storageClassName is the name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
+                        type: string
+                      volumeAttributesClassName:
+                        description: 'volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it''s not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.'
+                        type: string
+                      volumeMode:
+                        description: volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.
+                        type: string
+                      volumeName:
+                        description: volumeName is the binding reference to the PersistentVolume backing this claim.
+                        type: string
+                    type: object
+                  retain:
+                    description: Controls which topics' retained messages should be persisted to disk Optional
+                    nullable: true
+                    properties:
+                      mode:
+                        description: '''All'' to persist all retain messages, ''None'' to not persist any, ''Custom'' to persist only the specified topics.'
+                        enum:
+                        - All
+                        - None
+                        - Custom
+                        type: string
+                      retainSettings:
+                        description: Custom policy Optional, required if mode is Custom
+                        nullable: true
+                        properties:
+                          dynamic:
+                            description: Controls if MQTT clients can request for disk persistence via `MQTTv5` user property Works in addition to other groups (logical OR) Optional, key is "aio-persistence" and value is "true"
+                            nullable: true
+                            properties:
+                              mode:
+                                description: Optional, default is Enabled
+                                enum:
+                                - Enabled
+                                - Disabled
+                                nullable: true
+                                type: string
+                            type: object
+                          topics:
+                            description: 'List of topics under which retained messages would be persisted to disk Wildcards # and + supported Optional'
+                            items:
+                              type: string
+                            nullable: true
+                            type: array
+                        type: object
+                    required:
+                    - mode
+                    type: object
+                  stateStore:
+                    description: Controls which keys should be persisted to disk for the state store Optional
+                    nullable: true
+                    properties:
+                      mode:
+                        description: '''All'' to persist all keys, ''None'' to not persist any, ''Custom'' to persist only the specified keys.'
+                        enum:
+                        - All
+                        - None
+                        - Custom
+                        type: string
+                      stateStoreSettings:
+                        description: Custom policy Optional, required if mode is Custom
+                        nullable: true
+                        properties:
+                          dynamic:
+                            description: Controls if MQTT clients can request for disk persistence via `MQTTv5` user property Works in addition to other groups (logical OR) Optional, key is "aio-persistence" and value is "true"
+                            nullable: true
+                            properties:
+                              mode:
+                                description: Optional, default is Enabled
+                                enum:
+                                - Enabled
+                                - Disabled
+                                nullable: true
+                                type: string
+                            type: object
+                          stateStoreResources:
+                            description: Optinal, default is empty list. List of key and key type to persist to disk.
+                            items:
+                              properties:
+                                keyType:
+                                  description: Key type, required
+                                  enum:
+                                  - Pattern
+                                  - String
+                                  - Binary
+                                  type: string
+                                keys:
+                                  description: List of keys to persist to disk, required
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - keyType
+                              - keys
+                              type: object
+                            nullable: true
+                            type: array
+                        type: object
+                    required:
+                    - mode
+                    type: object
+                  subscriberQueue:
+                    description: 'Controls which subscriber message queues should be persisted to disk Important: to facilitate reconnection, session state metadata are ALWAYS written to disk If any persistence setting is specified, even if this section isn''t set Optional'
+                    nullable: true
+                    properties:
+                      mode:
+                        description: '''All'' to persist all subscriber queues, ''None'' to not persist any, ''Custom'' to persist only the specified queues.'
+                        enum:
+                        - All
+                        - None
+                        - Custom
+                        type: string
+                      subscriberQueueSettings:
+                        description: Custom policy, required if mode is Custom Subscriber queues from all groups are persisted to disk (logical OR)
+                        nullable: true
+                        properties:
+                          dynamic:
+                            description: Controls if MQTT clients can request for disk persistence via `MQTTv5` user property Works in addition to other groups (logical OR) Optional, key is "aio-persistence" and value is "true"
+                            nullable: true
+                            properties:
+                              mode:
+                                description: Optional, default is Enabled
+                                enum:
+                                - Enabled
+                                - Disabled
+                                nullable: true
+                                type: string
+                            type: object
+                          subscriberClientIds:
+                            description: List of client IDs of the subscribers, wildcard * supported Optional
+                            items:
+                              type: string
+                            nullable: true
+                            type: array
+                        type: object
+                    required:
+                    - mode
+                    type: object
+                required:
+                - maxSize
+                type: object
+              version:
+                description: Read only property set by User RP which iterates when a cloud update occurs.
+                format: uint32
+                minimum: 0.0
+                nullable: true
+                type: integer
+            type: object
+          status:
+            nullable: true
+            properties:
+              config:
+                description: Config status used for emitting error details.
+                nullable: true
+                properties:
+                  error:
+                    description: Error details, if an error has occurred.
+                    nullable: true
+                    properties:
+                      code:
+                        description: The HTTP status code generated by the Origin server for this occurrence of the problem.
+                        type: string
+                      details:
+                        description: Provides one or more detailed information about the errors with a well-defined object.
+                        items:
+                          description: Error details to be reported up to the cloud through `ConfigStatusError`.
+                          properties:
+                            code:
+                              description: 'A unique identifier of the error across all the aio components that allows for i18n, with the following pattern: <status-code>.<category-error>.<component-id>.<unique-id>'
+                              type: string
+                            correlationId:
+                              description: A correlation ID to map this specific error instance to an event.
+                              type: string
+                            info:
+                              description: An extensive human-readable details for the error.
+                              nullable: true
+                              type: string
+                            innerError:
+                              additionalProperties:
+                                type: string
+                              description: A service-defined object containing additional debug info.
+                              type: object
+                            message:
+                              description: A short, human-readable sentence that describe the error.
+                              type: string
+                          required:
+                          - code
+                          - correlationId
+                          - innerError
+                          - message
+                          type: object
+                        type: array
+                      message:
+                        description: A short, human-readable summary of the problem type.
+                        type: string
+                    required:
+                    - code
+                    - details
+                    - message
+                    type: object
+                  lastTransitionTime:
+                    description: '`LastTransitionTime` is the timestamp of the most recent transition in the format "2024-12-10T16:19:53Z".'
+                    type: string
+                  version:
+                    description: Version is iterated every time the `ConfigStatus` is updated starting from 1.
+                    format: uint32
+                    minimum: 0.0
+                    type: integer
+                required:
+                - lastTransitionTime
+                - version
+                type: object
+              healthState:
+                description: Health state of the resource after provisioning has completed.
+                nullable: true
+                properties:
+                  lastUpdateTime:
+                    nullable: true
+                    type: string
+                  status:
+                    enum:
+                    - Unknown
+                    - Available
+                    - Degraded
+                    - Unavailable
+                    type: string
+                required:
+                - status
+                type: object
+              provisioningStatus:
+                description: Provisioning status used for signaling to RP that async operation of recieving CR has completed.
+                nullable: true
+                properties:
+                  error:
+                    nullable: true
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                    - code
+                    - message
+                    type: object
+                  failureCause:
+                    nullable: true
+                    type: string
+                  logErrors:
+                    nullable: true
+                    type: boolean
+                  operationId:
+                    type: string
+                  output:
+                    additionalProperties:
+                      type: string
+                    nullable: true
+                    type: object
+                  status:
+                    type: string
+                required:
+                - operationId
+                - status
+                type: object
+              runtime:
+                description: Runtime status used for emitting runtime details.
+                nullable: true
+                properties:
+                  output:
+                    additionalProperties:
+                      type: string
+                    description: The output of the resource when the runtime.phase is not Failed. This is an open key-value pair dictionary and a component owner can have key-value string pairs of their choice.
+                    nullable: true
+                    type: object
+                  phase:
+                    description: Describe the current state phase of the Resource. This can be ideally any descriptive healthy string, but should have the following values for consistency – Running, Connected, Recovering, Waiting, Failed
+                    enum:
+                    - Waiting
+                    - Starting
+                    - Running
+                    - Recovering
+                    - Failed
+                    - Warning
+                    type: string
+                required:
+                - phase
+                type: object
+              runtimeStatus:
+                description: Legacy field for backward compatibility with old v1 CRD
+                nullable: true
+                properties:
+                  description:
+                    type: string
+                  status:
+                    description: '`RuntimeStatus` flags specific to `Broker` for reporting condition of CR at the edge.'
+                    enum:
+                    - Waiting
+                    - Starting
+                    - Running
+                    - Recovering
+                    - Failed
+                    - Warning
+                    type: string
+                required:
+                - description
+                - status
+                type: object
+            type: object
+        required:
+        - spec
+        title: Broker
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

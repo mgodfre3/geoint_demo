@@ -10,6 +10,7 @@ Geospatial Intelligence (GEOINT) demo workloads running on Azure Local, designed
 | 2 | **Geospatial Platform** | VM | Full geospatial stack — GeoServer, PostGIS, TileServer GL — with interactive MapLibre GL JS + CesiumJS 3D viewer. |
 | 3 | **3D Tactical Globe** | VM | CesiumJS globe with simulated tracks, sensor coverage, and AI-detected objects. Auto-playing kiosk mode. |
 | 4 | **Analyst AI Assistant** | Arc-Enabled AKS | Chat-based GEOINT analyst assistant powered by Foundry Local with RAG over intelligence reports. |
+| 5 | **Tactical Edge Video Intel** | Arc-Enabled AKS | Real-time video intelligence using Azure AI Video Indexer enabled by Arc. Live RTSP camera feed with AI detection overlays, custom threat detection, and perimeter monitoring — fully edge-operated. |
 
 ## Architecture
 
@@ -67,6 +68,7 @@ geoint_demo/
 ├── demo2-geo-platform/       # GeoServer + PostGIS + MapLibre (VM)
 ├── demo3-tactical-globe/     # CesiumJS 3D globe (VM)
 ├── demo4-analyst-assistant/  # Foundry Local chat + RAG (AKS)
+├── demo5-video-indexer/      # Video Indexer real-time analysis (AKS)
 ├── scripts/                  # Deployment and data loading scripts
 └── docs/                     # Architecture docs + setup guide
 ```

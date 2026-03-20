@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aio-broker-version-config
+  namespace: {{ $.Release.Namespace | default "default" | quote }}
+  labels:
+    app.kubernetes.io/part-of: aio
+    app.kubernetes.io/name: microsoft-iotoperations-mqttbroker
+data: {}
