@@ -11,7 +11,7 @@
 ## Pre-Show Setup Checklist
 
 - [ ] Mobile Cluster powered on and AKS Arc healthy (`kubectl get nodes`)
-- [ ] Video Indexer extension running (`kubectl get pods -n video-indexer`)
+- [ ] Video Indexer extension running (`kubectl get pods -n default -l app=video-indexer`)
 - [ ] Camera mounted and RTSP stream verified
 - [ ] Laptop connected to cluster network
 - [ ] VI web portal accessible at `https://<VI_ENDPOINT_URI>`
