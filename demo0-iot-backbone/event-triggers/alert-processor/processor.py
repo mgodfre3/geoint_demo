@@ -66,7 +66,7 @@ VISION_PIPELINE_URL: str = os.environ.get(
 )
 MAX_VISION_RETRIES: int = int(os.environ.get("MAX_VISION_RETRIES", "3"))
 VISION_RETRY_BASE_DELAY: float = float(os.environ.get("VISION_RETRY_BASE_DELAY", "1.0"))
-PORT: int = int(os.environ.get("ALERT_PROCESSOR_PORT", "8080"))
+PORT: int = int(os.environ.get("ALERT_PROCESSOR_PORT", "") or "8080")
 MQTT_BRIDGE_ENABLED: bool = _env_flag("MQTT_ALERT_BRIDGE_ENABLED", True)
 MQTT_ALERT_HOST: str = os.environ.get("MQTT_ALERT_HOST", "aio-broker-nodeport")
 MQTT_ALERT_PORT: int = int(os.environ.get("MQTT_ALERT_PORT", "1883"))

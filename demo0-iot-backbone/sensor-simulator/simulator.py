@@ -57,7 +57,7 @@ def _log(level: str, msg: str, **kwargs: Any) -> None:
 # Configuration
 # ---------------------------------------------------------------------------
 MQTT_HOST: str = os.environ.get("MQTT_HOST", "localhost")
-MQTT_PORT: int = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_PORT: int = int(os.environ.get("MQTT_PORT", "") or "1883")
 MQTT_USERNAME: str = os.environ.get("MQTT_USERNAME", "geoint-demo")
 MQTT_PASSWORD: str = os.environ.get("MQTT_PASSWORD", "")
 SCENARIO_FILE: str = os.environ.get("SCENARIO_FILE", "scenarios/base_scenario.json")
