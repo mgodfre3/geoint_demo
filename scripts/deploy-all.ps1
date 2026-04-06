@@ -306,6 +306,7 @@ Write-Host "[5/5] Verifying services..." -ForegroundColor Yellow
 
 Write-Host ""
 Write-Host "=== Deployment Complete ===" -ForegroundColor Green
+Write-Host "Demo 0 (IoT Backbone):    mqtt://$($envVars['AKS_WORKER_IP']):$($envVars['MQTT_BROKER_NODEPORT'])"
 Write-Host "Demo 1 (Vision Pipeline): http://$($envVars['AKS_WORKER_IP']):30081"
 Write-Host "Demo 2 (Geo Platform):    http://$($envVars['VM_GEOSERVER_IP']):8083"
 Write-Host "Demo 3 (Tactical Globe):  http://$($envVars['VM_GLOBE_IP']):8085"
