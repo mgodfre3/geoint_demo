@@ -96,18 +96,38 @@ Write-Host "  GPU Toleration:     $ViGpuTolerationKey"
 if ($ViExtensionVersion) { Write-Host "  Version:            $ViExtensionVersion" }
 Write-Host ""
 
+# Pre-flight: Ensure GPU Operator and Longhorn are installed
+Write-Host "[0/5] Checking prerequisites..." -ForegroundColor Yellow
+$gpuNs = kubectl get namespace gpu-operator -o name 2>$null
+$longhornSc = kubectl get storageclass $ViStorageClass -o name 2>$null
+
+if (-not $gpuNs -or -not $longhornSc) {
+    Write-Host "  Prerequisites missing — installing GPU Operator and Longhorn..." -ForegroundColor Gray
+    $prereqScript = Join-Path $PSScriptRoot "install-prereqs.ps1"
+    if (Test-Path $prereqScript) {
+        & $prereqScript -EnvFile $EnvFile
+    } else {
+        Write-Host "  [WARN] install-prereqs.ps1 not found at: $prereqScript" -ForegroundColor Yellow
+        if (-not $gpuNs) { Write-Host "  [WARN] GPU Operator not installed — DeepStream will not schedule" -ForegroundColor Yellow }
+        if (-not $longhornSc) { Write-Host "  [WARN] Storage class '$ViStorageClass' not found — VI recording may fail" -ForegroundColor Yellow }
+    }
+} else {
+    Write-Host "  [OK] GPU Operator installed" -ForegroundColor Green
+    Write-Host "  [OK] Storage class '$ViStorageClass' available" -ForegroundColor Green
+}
+
 # Set subscription
 az account set --subscription $SubscriptionId
 
 # Step 1: Register providers
-Write-Host "[1/4] Registering Azure resource providers..." -ForegroundColor Yellow
+Write-Host "[1/5] Registering Azure resource providers..." -ForegroundColor Yellow
 @("Microsoft.Kubernetes", "Microsoft.KubernetesConfiguration", "Microsoft.ExtendedLocation") | ForEach-Object {
     az provider register --namespace $_ --output none 2>$null
     Write-Host "  Registered: $_" -ForegroundColor Gray
 }
 
 # Step 2: Install cert-manager extension (prerequisite)
-Write-Host "[2/4] Checking cert-manager extension..." -ForegroundColor Yellow
+Write-Host "[2/5] Checking cert-manager extension..." -ForegroundColor Yellow
 $cmExists = az k8s-extension show `
     --name "azure-cert-manager" `
     --cluster-name $ClusterName `
@@ -134,7 +154,7 @@ if ($cmExists) {
 }
 
 # Step 3: Create or update VI extension
-Write-Host "[3/4] Deploying Video Indexer extension..." -ForegroundColor Yellow
+Write-Host "[3/5] Deploying Video Indexer extension..." -ForegroundColor Yellow
 $existing = az k8s-extension show `
     --name $ViExtensionName `
     --cluster-name $ClusterName `
@@ -184,21 +204,77 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  [OK] VI extension deployed" -ForegroundColor Green
 
-# Step 4: Verify
-Write-Host "[4/4] Verifying extension status..." -ForegroundColor Yellow
-az k8s-extension show `
-    --name $ViExtensionName `
-    --cluster-name $ClusterName `
-    --resource-group $ClusterResourceGroup `
-    --cluster-type connectedClusters `
-    --query "{name:name, state:provisioningState, version:version}" `
-    -o table
+# Step 4: Verify extension deployment with polling
+Write-Host "[4/5] Verifying extension deployment..." -ForegroundColor Yellow
+$maxWait = 300  # 5 minutes
+$elapsed = 0
+$interval = 15
+
+while ($elapsed -lt $maxWait) {
+    $state = az k8s-extension show `
+        --name $ViExtensionName `
+        --cluster-name $ClusterName `
+        --resource-group $ClusterResourceGroup `
+        --cluster-type connectedClusters `
+        --query "provisioningState" -o tsv 2>$null
+    
+    if ($state -eq "Succeeded") {
+        Write-Host "  [OK] Extension provisioning succeeded" -ForegroundColor Green
+        break
+    } elseif ($state -eq "Failed") {
+        Write-Host "  [ERROR] Extension provisioning failed" -ForegroundColor Red
+        az k8s-extension show --name $ViExtensionName --cluster-name $ClusterName --resource-group $ClusterResourceGroup --cluster-type connectedClusters --query "{name:name, state:provisioningState, error:errorInfo}" -o table
+        exit 1
+    }
+    
+    Write-Host "  Extension state: $state — waiting ${interval}s ($elapsed/${maxWait}s)..." -ForegroundColor Gray
+    Start-Sleep -Seconds $interval
+    $elapsed += $interval
+}
+
+if ($elapsed -ge $maxWait) {
+    Write-Host "  [WARN] Extension did not reach Succeeded state within ${maxWait}s" -ForegroundColor Yellow
+    Write-Host "         Check: az k8s-extension show --name $ViExtensionName --cluster-name $ClusterName --resource-group $ClusterResourceGroup --cluster-type connectedClusters" -ForegroundColor Yellow
+}
+
+# Check pod health
+$releaseNs = if ($ViReleaseNamespace) { $ViReleaseNamespace } else { "default" }
+Write-Host "  Checking pods in namespace '$releaseNs'..." -ForegroundColor Gray
+$podJson = kubectl get pods -n $releaseNs -l app.kubernetes.io/part-of=video-indexer -o json 2>$null | ConvertFrom-Json
+if ($podJson -and $podJson.items) {
+    $total = $podJson.items.Count
+    $ready = ($podJson.items | Where-Object { $_.status.phase -eq "Running" }).Count
+    Write-Host "  [INFO] VI Pods: $ready/$total running in namespace '$releaseNs'" -ForegroundColor $(if ($ready -eq $total) { "Green" } else { "Yellow" })
+} else {
+    Write-Host "  [INFO] No VI pods found yet — they may still be starting" -ForegroundColor Gray
+}
+
+# Step 4.5: Label GPU nodes for DeepStream scheduling
+Write-Host "[4.5/5] Labeling GPU nodes for DeepStream..." -ForegroundColor Yellow
+$gpuNodes = kubectl get nodes -o json | ConvertFrom-Json
+$labeled = 0
+foreach ($node in $gpuNodes.items) {
+    $gpuCapacity = $node.status.capacity.'nvidia.com/gpu'
+    if ($gpuCapacity -and [int]$gpuCapacity -gt 0) {
+        $nodeName = $node.metadata.name
+        kubectl label node $nodeName workload=deepstream --overwrite 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  [OK] Labeled node '$nodeName' with workload=deepstream" -ForegroundColor Green
+            $labeled++
+        } else {
+            Write-Host "  [WARN] Failed to label node '$nodeName'" -ForegroundColor Yellow
+        }
+    }
+}
+if ($labeled -eq 0) {
+    Write-Host "  [WARN] No GPU nodes found. DeepStream pods may not schedule." -ForegroundColor Yellow
+    Write-Host "         Ensure GPU operator is installed and nodes have nvidia.com/gpu capacity." -ForegroundColor Yellow
+}
 
 Write-Host ""
 Write-Host "=== Video Indexer Extension Deployed ===" -ForegroundColor Green
 Write-Host "Portal: https://$ViEndpointUri" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Label GPU node for deepstream:  kubectl label node <gpu-node> workload=deepstream"
-Write-Host "  2. Open portal:  https://$ViEndpointUri"
-Write-Host "  3. Upload video files or configure live camera streams in the portal"
+Write-Host "  1. Open portal:  https://$ViEndpointUri"
+Write-Host "  2. Upload video files or configure live camera streams in the portal"

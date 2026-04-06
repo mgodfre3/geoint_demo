@@ -73,6 +73,27 @@ switch ($Action) {
             Write-Host "ERROR: CAMERA_RTSP_URL not set in $EnvFile" -ForegroundColor Red
             exit 1
         }
+
+        # Pre-flight: Check camera network reachability
+        $rtspUri = [System.Uri]$CameraRtspUrl
+        $cameraHost = $rtspUri.Host
+        $cameraPort = if ($rtspUri.Port -gt 0) { $rtspUri.Port } else { 554 }
+        Write-Host "  Checking camera reachability: ${cameraHost}:${cameraPort}..." -ForegroundColor Gray
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $connectTask = $tcp.ConnectAsync($cameraHost, $cameraPort)
+            $completed = $connectTask.Wait(5000)  # 5 second timeout
+            $tcp.Close()
+            if ($completed -and -not $connectTask.IsFaulted) {
+                Write-Host "  [OK] Camera reachable at ${cameraHost}:${cameraPort}" -ForegroundColor Green
+            } else {
+                Write-Host "  [WARN] Camera not reachable at ${cameraHost}:${cameraPort} — registration may fail" -ForegroundColor Yellow
+                Write-Host "         Verify camera is powered on and network-connected" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "  [WARN] Could not verify camera connectivity: $_" -ForegroundColor Yellow
+        }
+
         Write-Host "Adding camera '$CameraName'..."
         Write-Host "  RTSP URL: $CameraRtspUrl"
         Write-Host "  Cluster:  $ClusterName ($ClusterResourceGroup)"
