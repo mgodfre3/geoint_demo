@@ -104,6 +104,54 @@ Write-Host "[1/5] Creating resource group..." -ForegroundColor Yellow
 az group create --name $ResourceGroup --location $Location --output none
 if ($LASTEXITCODE -ne 0) { Write-Host "  [WARN] Resource group may already exist" -ForegroundColor Yellow }
 
+# Step 1.5: Create AKS cluster + GPU node pool if it doesn't exist
+$KubeVersion = $envVars['AKS_KUBERNETES_VERSION']
+if (-not $KubeVersion) { $KubeVersion = "1.32.9" }
+
+Write-Host "[1.5/5] Checking AKS cluster..." -ForegroundColor Yellow
+$aksExists = az aksarc show --name $ClusterName --resource-group $ResourceGroup --query "properties.provisioningState" -o tsv 2>$null
+if ($aksExists -eq "Succeeded") {
+    Write-Host "  [OK] AKS cluster '$ClusterName' already exists" -ForegroundColor Green
+} elseif ($CustomLocationId -and $LogicalNetworkId) {
+    Write-Host "  Creating AKS cluster '$ClusterName' (this may take 15-30 min)..." -ForegroundColor Gray
+    az aksarc create `
+        --name $ClusterName `
+        --resource-group $ResourceGroup `
+        --custom-location $CustomLocationId `
+        --vnet-ids $LogicalNetworkId `
+        --kubernetes-version $KubeVersion `
+        --generate-ssh-keys `
+        --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [ERROR] AKS cluster creation failed" -ForegroundColor Red
+    } else {
+        Write-Host "  [OK] AKS cluster '$ClusterName' created" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  [SKIP] Missing AZURE_CUSTOM_LOCATION_ID or AZURE_LOGICAL_NETWORK_ID" -ForegroundColor Yellow
+}
+
+# Add GPU node pool if it doesn't exist
+$gpuPoolExists = az aksarc nodepool show --name gpupool --cluster-name $ClusterName --resource-group $ResourceGroup --query name -o tsv 2>$null
+if ($gpuPoolExists) {
+    Write-Host "  [OK] GPU node pool 'gpupool' already exists" -ForegroundColor Green
+} else {
+    Write-Host "  Adding GPU node pool 'gpupool' (Standard_NC8_A2, this may take 10-20 min)..." -ForegroundColor Gray
+    az aksarc nodepool add `
+        --name gpupool `
+        --cluster-name $ClusterName `
+        --resource-group $ResourceGroup `
+        --node-count 1 `
+        --os-type Linux `
+        --node-vm-size Standard_NC8_A2 `
+        --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [WARN] GPU node pool creation may have failed — Video Indexer requires GPU" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [OK] GPU node pool 'gpupool' created" -ForegroundColor Green
+    }
+}
+
 # Step 2: Deploy VMs via Azure CLI (Bicep types for Azure Local VMs are not stable)
 Write-Host "[2/5] Deploying infrastructure (VMs)..." -ForegroundColor Yellow
     $GeoVmName  = $envVars['VM_GEOSERVER_NAME']
@@ -231,8 +279,16 @@ if ($aksExists) {
     Write-Host "         az connectedk8s proxy -n $ClusterName -g $ResourceGroup" -ForegroundColor Gray
     Write-Host "         Then run: .\scripts\create-acr-secret.ps1 -AcrName $AcrName" -ForegroundColor Gray
 } else {
-    Write-Host "  [SKIP] AKS cluster '$ClusterName' not found - create it first, then re-run" -ForegroundColor Yellow
-    Write-Host "         az aksarc create -n $ClusterName -g $ResourceGroup --custom-location $CustomLocationId --vnet-ids $LogicalNetworkId" -ForegroundColor Gray
+    Write-Host "  [SKIP] AKS cluster '$ClusterName' not found or not connected — Flux requires a running cluster" -ForegroundColor Yellow
+}
+
+# Step 4.2: Deploy IoT Operations backbone (if configured)
+$MqttPassword = $envVars['MQTT_PASSWORD']
+if ($MqttPassword) {
+    Write-Host "[4.2/5] Deploying IoT Operations backbone..." -ForegroundColor Yellow
+    & "$PSScriptRoot\..\demo0-iot-backbone\infra\deploy-iot-backbone.ps1" -EnvFile $EnvFile
+} else {
+    Write-Host "[4.2/5] Skipping IoT Operations — MQTT_PASSWORD not set" -ForegroundColor Gray
 }
 
 # Step 4.5: Deploy Video Indexer Extension (if configured)

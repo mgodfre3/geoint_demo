@@ -64,6 +64,8 @@ def _env_flag(name: str, default: bool = False) -> bool:
 VISION_PIPELINE_URL: str = os.environ.get(
     "VISION_PIPELINE_URL", "http://demo1-vision-service:8080/jobs"
 )
+MAX_VISION_RETRIES: int = int(os.environ.get("MAX_VISION_RETRIES", "3"))
+VISION_RETRY_BASE_DELAY: float = float(os.environ.get("VISION_RETRY_BASE_DELAY", "1.0"))
 PORT: int = int(os.environ.get("ALERT_PROCESSOR_PORT", "8080"))
 MQTT_BRIDGE_ENABLED: bool = _env_flag("MQTT_ALERT_BRIDGE_ENABLED", True)
 MQTT_ALERT_HOST: str = os.environ.get("MQTT_ALERT_HOST", "aio-broker-nodeport")
@@ -139,19 +141,36 @@ async def process_alert(payload: AlertPayload) -> TriggerResponse:
         "trigger_type": payload.sensor_type,
         "triggered_at": payload.timestamp,
     }
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(VISION_PIPELINE_URL, json=job_request)
-            resp.raise_for_status()
-            _log("info", "Vision pipeline job dispatched", job_id=job_id, status=resp.status_code)
-    except httpx.HTTPError as exc:
-        _log(
-            "warning",
-            "Could not reach vision pipeline (non-fatal)",
-            url=VISION_PIPELINE_URL,
-            error=str(exc),
-            job_id=job_id,
-        )
+    for attempt in range(MAX_VISION_RETRIES):
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(VISION_PIPELINE_URL, json=job_request)
+                resp.raise_for_status()
+                _log("info", "Vision pipeline job dispatched", job_id=job_id, status=resp.status_code)
+                break
+        except httpx.HTTPError as exc:
+            if attempt < MAX_VISION_RETRIES - 1:
+                delay = VISION_RETRY_BASE_DELAY * (2 ** attempt)
+                _log(
+                    "warning",
+                    "Vision pipeline dispatch failed, retrying",
+                    attempt=attempt + 1,
+                    max_retries=MAX_VISION_RETRIES,
+                    retry_delay_s=delay,
+                    url=VISION_PIPELINE_URL,
+                    error=str(exc),
+                    job_id=job_id,
+                )
+                await asyncio.sleep(delay)
+            else:
+                _log(
+                    "warning",
+                    "Could not reach vision pipeline after retries (non-fatal)",
+                    attempts=MAX_VISION_RETRIES,
+                    url=VISION_PIPELINE_URL,
+                    error=str(exc),
+                    job_id=job_id,
+                )
 
     return TriggerResponse(status="triggered", job_id=job_id)
 

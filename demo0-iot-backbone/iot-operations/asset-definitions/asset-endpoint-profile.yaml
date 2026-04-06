@@ -1,0 +1,20 @@
+# Azure IoT Operations — Asset Endpoint Profile
+#
+# Provides the MQTT connection configuration referenced by all Asset
+# definitions (weather-station, seismic-sensor, rf-detector).  Must be
+# applied BEFORE the Asset resources.
+#
+# Apply with: kubectl apply -f asset-endpoint-profile.yaml
+
+apiVersion: deviceregistry.microsoft.com/v1
+kind: AssetEndpointProfile
+metadata:
+  name: geoint-mqtt-endpoint
+  namespace: azure-iot-operations
+  labels:
+    demo: geoint-iot-backbone
+spec:
+  targetAddress: mqtt://aio-broker-nodeport:1883
+  endpointProfileType: Microsoft.CustomMqtt
+  authentication:
+    method: Anonymous

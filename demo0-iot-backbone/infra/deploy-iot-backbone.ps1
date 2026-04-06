@@ -315,6 +315,7 @@ function Deploy-IotManifests {
     $manifests = @(
         (Join-Path $Demo0Root "iot-operations\mqtt-broker\broker.yaml"),
         (Join-Path $Demo0Root "iot-operations\dataflow-endpoints\default-broker.yaml"),
+        (Join-Path $Demo0Root "iot-operations\asset-definitions\asset-endpoint-profile.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\weather-station.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\seismic-sensor.yaml"),
         (Join-Path $Demo0Root "iot-operations\asset-definitions\rf-detector.yaml"),
