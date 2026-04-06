@@ -17,8 +17,7 @@ metadata:
 spec:
   displayName: "GEOINT Weather Station 001"
   description: "Simulated meteorological sensor providing temperature, humidity, wind speed, and barometric pressure data."
-  assetEndpointProfileRef:
-    name: geoint-mqtt-endpoint
+  assetEndpointProfileRef: azure-iot-operations/geoint-mqtt-endpoint
   manufacturer: "SimSensors Inc."
   manufacturerUri: "https://example.com/simsensors"
   model: "WX-3000"
@@ -32,23 +31,23 @@ spec:
     - name: telemetry
       topic:
         path: "geoint/sensors/weather-station/weather-001/telemetry"
-        retain: never
+        retain: Never
       dataPoints:
         - name: temperature_c
           dataSource: "$.reading.temperature_c"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: humidity_pct
           dataSource: "$.reading.humidity_pct"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: wind_speed_kph
           dataSource: "$.reading.wind_speed_kph"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: pressure_hpa
           dataSource: "$.reading.pressure_hpa"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: grid_ref
           dataSource: "$.grid_ref"
-          observabilityMode: none
+          observabilityMode: None
         - name: is_alert
           dataSource: "$.alert"
-          observabilityMode: none
+          observabilityMode: None

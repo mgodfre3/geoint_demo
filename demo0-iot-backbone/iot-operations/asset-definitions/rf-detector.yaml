@@ -16,8 +16,7 @@ metadata:
 spec:
   displayName: "GEOINT RF Signal Detector 001"
   description: "Simulated RF spectrum monitoring sensor detecting frequency, power level, and modulation — high power events trigger anomaly alerts."
-  assetEndpointProfileRef:
-    name: geoint-mqtt-endpoint
+  assetEndpointProfileRef: azure-iot-operations/geoint-mqtt-endpoint
   manufacturer: "SimSensors Inc."
   manufacturerUri: "https://example.com/simsensors"
   model: "RF-7200"
@@ -31,31 +30,31 @@ spec:
     - name: telemetry
       topic:
         path: "geoint/sensors/rf-detector/rf-001/telemetry"
-        retain: never
+        retain: Never
       dataPoints:
         - name: frequency_mhz
           dataSource: "$.reading.frequency_mhz"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: power_dbm
           dataSource: "$.reading.power_dbm"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: bandwidth_khz
           dataSource: "$.reading.bandwidth_khz"
-          observabilityMode: gauge
+          observabilityMode: Gauge
         - name: modulation
           dataSource: "$.reading.modulation"
-          observabilityMode: none
+          observabilityMode: None
         - name: grid_ref
           dataSource: "$.grid_ref"
-          observabilityMode: none
+          observabilityMode: None
         - name: is_alert
           dataSource: "$.alert"
-          observabilityMode: none
+          observabilityMode: None
     - name: alerts
       topic:
         path: "geoint/sensors/rf-detector/rf-001/alert"
-        retain: never
+        retain: Never
       dataPoints:
         - name: alert_payload
           dataSource: "$"
-          observabilityMode: none
+          observabilityMode: None
