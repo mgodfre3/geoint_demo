@@ -15,17 +15,30 @@ spec:
       labels:
         app: vision-pipeline
     spec:
+      # Schedule on GPU node for hardware-accelerated Ollama + YOLO inference
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu.present
+                    operator: In
+                    values: ["true"]
       imagePullSecrets:
         - name: acr-secret
       containers:
-        # Ollama — local LLM inference
+        # Ollama — GPU-accelerated LLM inference
         - name: ollama
           image: ollama/ollama:latest
           ports:
             - containerPort: 11434
           resources:
             limits:
-              memory: "6Gi"
+              nvidia.com/gpu: "1"
             requests:
               cpu: "500m"
               memory: "4Gi"
@@ -39,10 +52,8 @@ spec:
           ports:
             - containerPort: 8000
           resources:
-            limits:
-              memory: "4Gi"
             requests:
-              cpu: "500m"
+              cpu: "250m"
               memory: "1Gi"
 
         # FastAPI backend
@@ -51,11 +62,9 @@ spec:
           ports:
             - containerPort: 8082
           resources:
-            limits:
-              memory: "2Gi"
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "100m"
+              memory: "256Mi"
           env:
             - name: FOUNDRY_URL
               value: "http://localhost:11434"
@@ -70,11 +79,9 @@ spec:
           ports:
             - containerPort: 80
           resources:
-            limits:
-              memory: "256Mi"
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "50m"
+              memory: "64Mi"
 
       volumes:
         - name: ollama-data
