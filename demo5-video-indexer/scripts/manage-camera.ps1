@@ -44,7 +44,7 @@ Get-Content $EnvFile | ForEach-Object {
     }
 }
 
-$ClusterName          = $envVars['AKS_CLUSTER_NAME']
+$ClusterName          = if ($envVars['VI_AKS_CLUSTER_NAME']) { $envVars['VI_AKS_CLUSTER_NAME'] } else { $envVars['AKS_CLUSTER_NAME'] }
 $ClusterResourceGroup = $envVars['AZURE_RESOURCE_GROUP']
 $ViAccountName        = $envVars['VI_ACCOUNT_NAME']
 $ViAccountRg          = $envVars['VI_ACCOUNT_RESOURCE_GROUP']
