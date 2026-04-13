@@ -17,7 +17,9 @@ $images = @(
     @{ Name = "geoint/vision-api"; Context = "demo1-vision-pipeline"; Dockerfile = "Dockerfile" },
     @{ Name = "geoint/yolov8-satellite"; Context = "demo1-vision-pipeline"; Dockerfile = "Dockerfile.yolo" },
     @{ Name = "geoint/vision-ui"; Context = "demo1-vision-pipeline/frontend"; Dockerfile = "Dockerfile" },
-    @{ Name = "geoint/chat-api"; Context = "demo4-analyst-assistant"; Dockerfile = "Dockerfile" }
+    @{ Name = "geoint/chat-api"; Context = "demo4-analyst-assistant"; Dockerfile = "Dockerfile" },
+    @{ Name = "geoint/booth-analytics"; Context = "demo5-video-indexer/booth-app"; Dockerfile = "Dockerfile" },
+    @{ Name = "geoint/landing-page"; Context = "landing-page"; Dockerfile = "Dockerfile" }
 )
 
 foreach ($img in $images) {
