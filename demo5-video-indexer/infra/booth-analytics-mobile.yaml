@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booth-analytics
+  namespace: geoint-booth
+  labels:
+    app: booth-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booth-analytics
+  template:
+    metadata:
+      labels:
+        app: booth-analytics
+    spec:
+      imagePullSecrets:
+      - name: acr-secret
+      containers:
+      - name: booth
+        image: acrgeointdemo.azurecr.io/geoint/booth-analytics:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VI_ENDPOINT
+          value: "https://mobile-vi.default.svc.cluster.local:8443"
+        - name: VI_ACCOUNT_ID
+          value: "d987d021-dd25-4fec-80af-09631f7c7726"
+        - name: VI_CAMERA_NAME
+          value: "geoint-booth-cam"
+        - name: CAMERA_RTSP_URL
+          value: "rtsp://root:p%40ssw0rd@172.25.10.13/axis-media/media.amp?camera=1"
+        - name: VI_PORTAL_URL
+          value: "https://mobile-vi.adaptivecloudlab.com"
+        - name: VI_EXTENSION_ID
+          value: "__VI_EXTENSION_ID__"
+        - name: VI_ACCOUNT_RG
+          value: "acx-geoint-mobile"
+        - name: VI_ACCOUNT_NAME
+          value: "AC-VI"
+        - name: VI_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: vi-token
+              key: token
+              optional: true
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: tenant-id
+              optional: true
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: client-id
+              optional: true
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: client-secret
+              optional: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booth-analytics
+  namespace: geoint-booth
+spec:
+  type: NodePort
+  selector:
+    app: booth-analytics
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    nodePort: 30080
