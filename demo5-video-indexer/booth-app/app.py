@@ -229,6 +229,19 @@ def poll_insights():
                 _state["current_in_frame"] = person_count
                 _state["resolution"] = f"{data.get('width', '?')}x{data.get('height', '?')}"
 
+                # Store raw detection data for visualization
+                _state["last_detections"] = [
+                    {
+                        "type": d.get("type", "object"),
+                        "id": d.get("id", ""),
+                        "confidence": d.get("confidence", 0),
+                        "bbox": d.get("boundingBox", d.get("bbox", {})),
+                    }
+                    for d in detections
+                ]
+                _state["frame_width"] = data.get("width", 1920)
+                _state["frame_height"] = data.get("height", 1080)
+
                 if person_count > prev:
                     delta = person_count - prev
                     _state["total_count"] += delta

@@ -16,42 +16,58 @@
         <div class="now">UTC <span id="clock"></span></div>
       </header>
 
-      <!-- Live Feed Panel -->
-      <section class="live-feed-panel" id="liveFeedPanel">
-        <div class="lf-header">
-          <div class="lf-title">
+      <!-- ── Live AI Feed (hero) ── -->
+      <section class="hero" id="liveFeedPanel">
+        <div class="hero-top">
+          <div class="hero-title">
             <span class="lf-dot" id="lfDot"></span>
-            <h2>Live Perimeter Feed</h2>
-            <span class="lf-cam" id="lfCamName">—</span>
+            <h2>Azure Video Indexer — Live AI Feed</h2>
+            <span class="lf-cam" id="lfCamName">booth-cam</span>
           </div>
           <span class="lf-status" id="lfStatus">Connecting…</span>
         </div>
-        <div class="lf-body">
-          <div class="lf-stats">
-            <div class="lf-stat cyan">
-              <div class="lf-val" id="lfPeople">0</div>
-              <div class="lf-label">People Today</div>
-            </div>
-            <div class="lf-stat green">
-              <div class="lf-val" id="lfInFrame">0</div>
-              <div class="lf-label">In Frame Now</div>
-            </div>
-            <div class="lf-stat amber">
-              <div class="lf-val" id="lfPeak">0</div>
-              <div class="lf-label">Peak</div>
-            </div>
-            <div class="lf-stat purple">
-              <div class="lf-val" id="lfAlerts">0</div>
-              <div class="lf-label">Alerts</div>
-            </div>
+
+        <div class="hero-body">
+          <!-- Camera + AI overlay canvas -->
+          <div class="cam-viewport">
+            <canvas id="aiCanvas"></canvas>
+            <div class="cam-hud-tl"><span class="hud-live" id="hudLive">● LIVE</span> <span class="hud-res" id="hudRes"></span></div>
+            <div class="cam-hud-tr" id="hudModel">YOLOv8 + VI Arc</div>
+            <div class="cam-hud-bl" id="hudCam"></div>
+            <div class="cam-hud-br" id="hudFps">-- fps</div>
           </div>
-          <div class="lf-right">
-            <div class="lf-spark-area">
+
+          <!-- Right column: stats + events -->
+          <div class="hero-sidebar">
+            <div class="stat-row">
+              <div class="lf-stat cyan">
+                <div class="lf-val" id="lfInFrame">0</div>
+                <div class="lf-label">In Frame</div>
+              </div>
+              <div class="lf-stat green">
+                <div class="lf-val" id="lfPeople">0</div>
+                <div class="lf-label">Total Today</div>
+              </div>
+              <div class="lf-stat amber">
+                <div class="lf-val" id="lfPeak">0</div>
+                <div class="lf-label">Peak</div>
+              </div>
+              <div class="lf-stat purple">
+                <div class="lf-val" id="lfAlerts">0</div>
+                <div class="lf-label">Alerts</div>
+              </div>
+            </div>
+
+            <div class="spark-section">
               <div class="lf-spark-title">Detections — Last 60 s</div>
               <div class="lf-spark" id="lfSpark"></div>
             </div>
-            <div class="lf-events" id="lfEvents">
-              <div class="lf-events-empty">Waiting for camera…</div>
+
+            <div class="event-feed">
+              <div class="event-feed-hdr">Live Event Feed</div>
+              <div class="event-feed-list" id="lfEvents">
+                <div class="lf-events-empty">Waiting for camera…</div>
+              </div>
             </div>
           </div>
         </div>
