@@ -76,7 +76,7 @@ $required = @{
 }
 $missing = $required.GetEnumerator() | Where-Object { -not $_.Value }
 if ($missing) {
-    Write-Host "ERROR: Missing required variables in $EnvFile:" -ForegroundColor Red
+    Write-Host "ERROR: Missing required variables in ${EnvFile}:" -ForegroundColor Red
     $missing | ForEach-Object { Write-Host "  - $($_.Key)" -ForegroundColor Red }
     exit 1
 }
@@ -126,30 +126,29 @@ Write-Host "[1/5] Registering Azure resource providers..." -ForegroundColor Yell
     Write-Host "  Registered: $_" -ForegroundColor Gray
 }
 
-# Step 2: Install cert-manager extension (prerequisite)
-Write-Host "[2/5] Checking cert-manager extension..." -ForegroundColor Yellow
-$cmExists = az k8s-extension show `
+# Step 2: Install cert-manager (prerequisite)
+Write-Host "[2/5] Checking cert-manager..." -ForegroundColor Yellow
+$cmPods = kubectl get pods -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>$null
+$cmExtension = az k8s-extension show `
     --name "azure-cert-manager" `
     --cluster-name $ClusterName `
     --resource-group $ClusterResourceGroup `
     --cluster-type connectedClusters `
-    --query name -o tsv 2>$null
+    --query provisioningState -o tsv 2>$null
 
-if ($cmExists) {
-    Write-Host "  [OK] cert-manager already installed" -ForegroundColor Green
+if ($cmPods) {
+    Write-Host "  [OK] cert-manager already running on cluster" -ForegroundColor Green
+} elseif ($cmExtension -eq "Succeeded") {
+    Write-Host "  [OK] cert-manager Azure extension installed" -ForegroundColor Green
 } else {
-    Write-Host "  Installing cert-manager..." -ForegroundColor Gray
-    az k8s-extension create `
-        --cluster-name $ClusterName `
-        --name "azure-cert-manager" `
-        --resource-group $ClusterResourceGroup `
-        --cluster-type connectedClusters `
-        --extension-type Microsoft.CertManagement `
-        --scope cluster
+    Write-Host "  Installing cert-manager via Helm (Jetstack)..." -ForegroundColor Gray
+    helm repo add jetstack https://charts.jetstack.io --force-update 2>$null
+    helm repo update jetstack 2>$null
+    helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 180s 2>$null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  [WARN] cert-manager installation had errors" -ForegroundColor Yellow
     } else {
-        Write-Host "  [OK] cert-manager installed" -ForegroundColor Green
+        Write-Host "  [OK] cert-manager installed via Helm" -ForegroundColor Green
     }
 }
 
