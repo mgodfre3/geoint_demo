@@ -1,9 +1,10 @@
 import json
 import os
+import time
 from datetime import datetime
 
 import requests
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, Response, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -24,23 +25,23 @@ DEFAULT_SERVICES = [
         "name": "Tactical Globe",
         "description": "Cesium 3D globe (Demo 3)",
         "url": "http://globe.den.geoint.local:8085",
-        "health": "http://globe.den.geoint.local:8085",
+        "health": "http://globe.den.geoint.local:8085/api/health",
     },
     {
         "name": "Analyst Assistant",
         "description": "Foundry Local RAG (Demo 4)",
         "url": "http://analyst.den.geoint.local:8086",
-        "health": "http://analyst.den.geoint.local:8086",
+        "health": "http://analyst.den.geoint.local:8086/health",
     },
     {
         "name": "Video Indexer",
         "description": "Live Perimeter Analytics (Demo 5)",
-        "url": "http://vi.den.geoint.local:8087",
-        "health": "http://vi.den.geoint.local:8087/api/health",
+        "url": "http://vi.den.geoint.local:8088",
+        "health": "http://vi.den.geoint.local:8088/api/health",
     },
 ]
 
-DEFAULT_BOOTH_URL = "http://vi.den.geoint.local:8087"
+DEFAULT_BOOTH_URL = "http://vi.den.geoint.local:8088"
 
 
 def _load_services() -> list[dict[str, str]]:
@@ -70,6 +71,48 @@ def api_live_feed() -> tuple:
     except requests.RequestException:
         pass
     return jsonify({"error": True, "camera_status": "Offline"}), 503
+
+
+@app.get("/api/live-feed/stream")
+def live_feed_stream():
+    """SSE endpoint — pushes booth-app stats every 2 s for real-time UI."""
+
+    def _generate():
+        last_event_count = 0
+        while True:
+            try:
+                resp = requests.get(f"{BOOTH_URL}/api/stats", timeout=5)
+                if resp.ok:
+                    data = resp.json()
+                    events = data.get("events", [])
+                    new_count = len(events)
+                    # Send full state on every tick so stats stay current
+                    yield f"event: stats\ndata: {json.dumps(data)}\n\n"
+                    # Send a dedicated new-events burst when the list grows
+                    if new_count > last_event_count and last_event_count > 0:
+                        new_events = events[: new_count - last_event_count]
+                        yield f"event: events\ndata: {json.dumps(new_events)}\n\n"
+                    last_event_count = new_count
+                else:
+                    yield (
+                        f"event: stats\ndata: "
+                        f'{json.dumps({"error": True, "camera_status": "Offline"})}\n\n'
+                    )
+            except requests.RequestException:
+                yield (
+                    f"event: stats\ndata: "
+                    f'{json.dumps({"error": True, "camera_status": "Offline"})}\n\n'
+                )
+            time.sleep(2)
+
+    return Response(
+        _generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/health")

@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, render_template_string
-import requests, json, os, time, threading, urllib3
+import base64, requests, json, os, time, threading, urllib3
 urllib3.disable_warnings()
 
 app = Flask(__name__)
@@ -10,8 +10,11 @@ VI_ACCOUNT_ID = os.environ.get("VI_ACCOUNT_ID", "d987d021-dd25-4fec-80af-09631f7
 CAMERA_NAME = os.environ.get("VI_CAMERA_NAME", "geoint-booth-cam")
 CAMERA_RTSP_URL = os.environ.get("CAMERA_RTSP_URL", "")
 
+_REFRESH_BUFFER_S = 300  # renew 5 min before expiry
+
 # Token from environment (injected by K8s secret or init container)
 _token_cache = {"token": os.environ.get("VI_ACCESS_TOKEN", ""), "expires": 0}
+_token_lock = threading.Lock()
 
 _state = {
     "total_count": 0,
@@ -28,24 +31,149 @@ _state = {
 }
 
 
-def get_token():
+def get_token() -> str:
     return _token_cache.get("token", "")
 
 
-def refresh_token_from_file():
-    """Watch /var/run/secrets/vi-token for refreshed tokens."""
-    token_path = os.environ.get("VI_TOKEN_PATH", "/var/run/secrets/vi-token/token")
+# ── Token refresh methods (priority order) ────────────────────────────
+
+def _jwt_exp(token: str) -> float:
+    """Extract 'exp' claim from a JWT without cryptographic validation."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (4 - len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return float(claims.get("exp", 0))
+    except Exception:
+        return 0.0
+
+
+def _refresh_via_workload_identity():
+    """Azure Workload Identity: exchange projected SA token for AAD token."""
+    tenant = os.environ.get("AZURE_TENANT_ID")
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    token_file = os.environ.get("AZURE_FEDERATED_TOKEN_FILE")
+    authority = os.environ.get("AZURE_AUTHORITY_HOST",
+                               "https://login.microsoftonline.com")
+    scope = os.environ.get("VI_TOKEN_SCOPE",
+                           "https://management.azure.com/.default")
+    if not all([tenant, client_id, token_file]):
+        return None
+    try:
+        if not os.path.exists(token_file):
+            return None
+        with open(token_file) as f:
+            assertion = f.read().strip()
+        r = requests.post(
+            f"{authority}/{tenant}/oauth2/v2.0/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_assertion_type":
+                    "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                "client_assertion": assertion,
+                "scope": scope,
+            },
+            timeout=15,
+        )
+        if r.ok:
+            data = r.json()
+            return (data["access_token"],
+                    time.time() + data.get("expires_in", 3600))
+    except Exception as e:
+        app.logger.error(f"Workload-identity token refresh: {e}")
+    return None
+
+
+def _refresh_via_service_principal():
+    """Client-credentials grant using AZURE_CLIENT_SECRET."""
+    tenant = os.environ.get("AZURE_TENANT_ID")
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    scope = os.environ.get("VI_TOKEN_SCOPE",
+                           "https://management.azure.com/.default")
+    if not all([tenant, client_id, client_secret]):
+        return None
+    try:
+        r = requests.post(
+            f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": scope,
+            },
+            timeout=15,
+        )
+        if r.ok:
+            data = r.json()
+            return (data["access_token"],
+                    time.time() + data.get("expires_in", 3600))
+    except Exception as e:
+        app.logger.error(f"Service-principal token refresh: {e}")
+    return None
+
+
+def _refresh_via_file():
+    """Read a token written to disk by an external sidecar / CronJob."""
+    token_path = os.environ.get("VI_TOKEN_PATH",
+                                "/var/run/secrets/vi-token/token")
+    try:
+        if os.path.exists(token_path):
+            with open(token_path) as f:
+                new_token = f.read().strip()
+            if new_token:
+                exp = _jwt_exp(new_token) or (time.time() + 3600)
+                return new_token, exp
+    except Exception as e:
+        app.logger.error(f"File-based token read: {e}")
+    return None
+
+
+def _do_refresh() -> bool:
+    """Try every available method; update cache on first success."""
+    for name, method in [
+        ("workload-identity", _refresh_via_workload_identity),
+        ("service-principal", _refresh_via_service_principal),
+        ("file",             _refresh_via_file),
+    ]:
+        result = method()
+        if result:
+            token, expires = result
+            with _token_lock:
+                _token_cache["token"] = token
+                _token_cache["expires"] = expires
+            app.logger.info(
+                f"Token refreshed via {name} "
+                f"(expires in {int(expires - time.time())}s)")
+            return True
+    return False
+
+
+def token_refresh_loop():
+    """Proactively refresh tokens before they expire — runs for days."""
+    if _token_cache["token"] and not _token_cache["expires"]:
+        exp = _jwt_exp(_token_cache["token"])
+        if exp:
+            _token_cache["expires"] = exp
+            app.logger.info(
+                f"Seed token expires in {int(exp - time.time())}s")
+
     while True:
         try:
-            if os.path.exists(token_path):
-                with open(token_path) as f:
-                    new_token = f.read().strip()
-                if new_token and new_token != _token_cache.get("token"):
-                    _token_cache["token"] = new_token
-                    app.logger.info("Token refreshed from file")
+            remaining = _token_cache["expires"] - time.time()
+            if remaining < _REFRESH_BUFFER_S:
+                if _do_refresh():
+                    time.sleep(60)
+                    continue
+                app.logger.warning(
+                    "All token refresh methods failed — retrying in 30 s")
+                time.sleep(30)
+                continue
+            time.sleep(min(remaining - _REFRESH_BUFFER_S, 60))
         except Exception as e:
-            app.logger.error(f"Token file read error: {e}")
-        time.sleep(30)
+            app.logger.error(f"Token refresh loop: {e}")
+            time.sleep(30)
 
 
 def discover_camera():
@@ -135,7 +263,9 @@ def poll_insights():
                 _state["events"] = _state["events"][:100]
                 _state["camera_status"] = "Online"
             elif r.status_code == 401:
-                _state["camera_status"] = "Token expired"
+                _state["camera_status"] = "Token expired — refreshing"
+                app.logger.warning("VI returned 401 — forcing token refresh")
+                _do_refresh()
             else:
                 _state["camera_status"] = f"API error ({r.status_code})"
         except requests.exceptions.ConnectionError:
@@ -283,6 +413,6 @@ setInterval(()=>{const n=new Date();document.getElementById('clock').textContent
 
 if __name__ == "__main__":
     threading.Thread(target=poll_insights, daemon=True).start()
-    threading.Thread(target=refresh_token_from_file, daemon=True).start()
+    threading.Thread(target=token_refresh_loop, daemon=True).start()
     discover_camera()
     app.run(host="0.0.0.0", port=8080)

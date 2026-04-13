@@ -35,6 +35,24 @@ spec:
               name: vi-token
               key: token
               optional: true
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: tenant-id
+              optional: true
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: client-id
+              optional: true
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vi-sp-credentials
+              key: client-secret
+              optional: true
         resources:
           requests:
             cpu: 100m
@@ -54,6 +72,6 @@ spec:
     app: booth-analytics
   ports:
   - name: http
-    port: 80
+    port: 8088
     targetPort: 8080
-    nodePort: 30080
+    nodePort: 30088

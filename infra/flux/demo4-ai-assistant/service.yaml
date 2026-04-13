@@ -9,6 +9,6 @@ spec:
     app: analyst-assistant
   ports:
     - name: chat-api
-      port: 8087
+      port: 8086
       targetPort: 8087
-      nodePort: 30087
+      nodePort: 30086

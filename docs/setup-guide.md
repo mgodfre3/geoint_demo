@@ -129,6 +129,7 @@ Open each demo in a browser:
 | Geospatial Platform | `http://<node1-ip>:8083` |
 | 3D Tactical Globe | `http://<node2-ip>:8085` |
 | Analyst AI Assistant | `http://<node2-ip>:8086` |
+| Booth Analytics (Demo 5) | `http://<node2-ip>:8088` |
 
 ## Teardown
 

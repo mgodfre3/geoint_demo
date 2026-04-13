@@ -111,9 +111,10 @@ If you can control the event LAN DNS, create the following A records pointing at
 | `geo.den.geoint.local` | 172.22.84.42 | Demo 2 Map UI + GeoServer |
 | `globe.den.geoint.local` | 172.22.84.43 | Demo 3 Globe |
 | `analyst.den.geoint.local` | 172.22.84.50 | Demo 4 UI |
+| `vi.den.geoint.local` | 172.22.84.50 | Demo 5 Booth Analytics |
 | `mqtt.den.geoint.local` | 172.22.84.50 | NodePort 31883 for simulators |
 
-Use split-horizon DNS (e.g., Windows DNS on the booth switch) or add host entries on presenter laptops. Ensure firewall rules allow TCP 8081–8086 and 31883 intra-LAN.
+Use split-horizon DNS (e.g., Windows DNS on the booth switch) or add host entries on presenter laptops. Ensure firewall rules allow TCP 8081–8088 and 31883 intra-LAN.
 
 ## 7. Common Questions & Answers
 

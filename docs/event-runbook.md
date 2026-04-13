@@ -65,7 +65,7 @@ Expected repositories:
 | Requirement | Details |
 |-------------|---------|
 | **Ports (outbound)** | 443 (Azure Arc, ACR), 80/443 (optional — Cesium ion tiles) |
-| **Ports (inbound on booth LAN)** | 8081–8086 (demo UIs, see [Architecture](architecture.md)) |
+| **Ports (inbound on booth LAN)** | 8081–8088 (demo UIs, see [Architecture](architecture.md)) |
 | **Bandwidth** | ≥ 10 Mbps sustained (ACR pulls, Arc heartbeat, Cesium tiles) |
 | **DNS** | Resolve `*.azurecr.io`, `*.guestconfiguration.azure.com`, `management.azure.com`, `ion.cesium.com` |
 | **Firewall** | Allow WebSocket on 8085 (Cesium globe live updates) |
@@ -178,6 +178,7 @@ Start-Process chrome "--kiosk http://<node1-ip>:8081"   # Demo 1 — Vision Pipe
 Start-Process chrome "--kiosk http://<node1-ip>:8083"   # Demo 2 — Geo Platform
 Start-Process chrome "--kiosk http://<node2-ip>:8085"   # Demo 3 — Tactical Globe
 Start-Process chrome "--kiosk http://<node2-ip>:8086"   # Demo 4 — Analyst Assistant
+Start-Process chrome "--kiosk http://<node2-ip>:8088"   # Demo 5 — Booth Analytics
 ```
 
 > **Tip:** Use `--new-window` instead of `--kiosk` if you need to switch between demos on a single monitor.
@@ -190,6 +191,7 @@ Visit each URL and confirm:
 - [ ] Demo 2: MapLibre map renders with base layer tiles
 - [ ] Demo 3: Cesium globe renders and simulated tracks animate
 - [ ] Demo 4: Chat UI loads and responds to a test question
+- [ ] Demo 5: Booth Analytics dashboard loads and shows camera status
 
 ---
 
@@ -203,6 +205,7 @@ Visit each URL and confirm:
 | 2 | Geospatial Platform | `http://<node1-ip>:8083` | VM |
 | 3 | 3D Tactical Globe | `http://<node2-ip>:8085` | VM |
 | 4 | Analyst AI Assistant | `http://<node2-ip>:8086` | AKS (GPU) |
+| 5 | Booth Analytics | `http://<node2-ip>:8088` | AKS |
 
 ### 3.2 Talking Points & Interaction Guide
 
@@ -349,7 +352,7 @@ ssh user@<vm-geoserver-ip> "cd /opt/geoint/demo2-geo-platform && docker compose 
 | Demo 3 globe blank | WebSocket blocked or Cesium container down | Check firewall allows port 8085 WebSocket. Restart: `docker compose restart`. |
 | Demo 4 chat returns errors | Foundry Local model not loaded | `kubectl logs -l app=demo4-backend` — look for model loading errors. Delete pod to trigger reload. |
 | Slow inference (Demo 1) | GPU not being used | `kubectl exec <pod> -- nvidia-smi` to verify GPU utilization. If 0%, restart the pod. |
-| Browser shows "connection refused" | Service not started or wrong IP | Verify IP with `kubectl get svc` or `hostname -I` on VMs. Ensure ports 8081–8086 are open. |
+| Browser shows "connection refused" | Service not started or wrong IP | Verify IP with `kubectl get svc` or `hostname -I` on VMs. Ensure ports 8081–8088 are open. |
 | Arc shows "Offline" | Internet or DNS issue | Check DNS resolution: `nslookup management.azure.com`. Check proxy settings. Arc will auto-reconnect. |
 
 ### 5.2 Health Check URLs
@@ -362,6 +365,7 @@ ssh user@<vm-geoserver-ip> "cd /opt/geoint/demo2-geo-platform && docker compose 
 | Demo 2 — MapLibre Viewer | `http://<node1-ip>:8083` | Map renders |
 | Demo 3 — CesiumJS Globe | `http://<node2-ip>:8085` | Globe renders |
 | Demo 4 — Chat UI | `http://<node2-ip>:8086` | Chat interface loads |
+| Demo 5 — Booth Analytics | `http://<node2-ip>:8088/api/health` | `{"status": "ok"}` |
 
 ### 5.3 GPU Status Check
 

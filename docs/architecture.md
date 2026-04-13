@@ -32,6 +32,7 @@ All demos expose HTTP services accessible from the booth network:
 | Demo 2 — GeoServer | 8084 | HTTP (OGC WMS/WFS) |
 | Demo 3 — CesiumJS Globe | 8085 | HTTP + WebSocket |
 | Demo 4 — Chat UI | 8086 | HTTP |
+| Demo 5 — Booth Analytics | 8088 | HTTP |
 
 ## GitOps Deployment (AKS Workloads)
 
