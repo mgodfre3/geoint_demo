@@ -343,6 +343,33 @@ def stats():
 def health():
     return jsonify({"status": "ok", "camera": _state["camera_status"]})
 
+@app.route("/api/widget-config")
+def widget_config():
+    """Return VI widget embed URLs for the Player and Insights iframes."""
+    account_id = VI_ACCOUNT_ID
+    # Use the first available video, or allow override via env
+    video_id = os.environ.get("VI_VIDEO_ID", "")
+    token = get_token()
+    location = os.environ.get("VI_LOCATION", "eastus")
+    base = "https://www.videoindexer.ai/embed"
+    return jsonify({
+        "accountId": account_id,
+        "videoId": video_id,
+        "location": location,
+        "hasToken": bool(token),
+        "player": (
+            f"{base}/player/{account_id}/{video_id}/"
+            f"?accessToken={token}&location={location}"
+            f"&boundingBoxes=observedPeople,people,detectedObjects"
+            f"&autoplay=true&showCaptions=true"
+        ) if video_id and token else "",
+        "insights": (
+            f"{base}/insights/{account_id}/{video_id}/"
+            f"?accessToken={token}&location={location}"
+            f"&widgets=people,labels,detectedObjects,observedPeople,namedEntities,keyframes"
+        ) if video_id and token else "",
+    })
+
 
 DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="en"><head>
@@ -351,92 +378,80 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <style>
 *{box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif;margin:0}
 body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
-.dash{display:grid;grid-template-rows:auto auto 1fr auto;height:100vh;padding:1.2rem 2rem;gap:1rem}
-
-/* Header */
+.dash{display:grid;grid-template-rows:auto auto 1fr auto;height:100vh;padding:1rem 1.5rem;gap:.8rem}
 .hdr{display:flex;justify-content:space-between;align-items:center}
-.hdr h1{font-size:1.4rem;font-weight:600}.hdr h1 span{color:#00b4d8}
-.status{display:flex;align-items:center;gap:.5rem;font-size:.9rem;color:#9ca4b3}
-.dot{width:12px;height:12px;border-radius:50%;background:#ef4444;animation:pulse 2s infinite}
+.hdr h1{font-size:1.3rem;font-weight:600}.hdr h1 span{color:#00b4d8}
+.status{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:#9ca4b3}
+.dot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:pulse 2s infinite}
 .dot.on{background:#22c55e}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.cam-badge{background:#1e2235;border:1px solid #2a3050;border-radius:8px;padding:.35rem .7rem;font-size:.8rem;color:#9ca4b3;display:inline-flex;align-items:center;gap:.4rem}
-.cam-badge .cd{width:8px;height:8px;border-radius:50%;background:#22c55e}
+.cam-badge{background:#1e2235;border:1px solid #2a3050;border-radius:8px;padding:.3rem .6rem;font-size:.75rem;color:#9ca4b3;display:inline-flex;align-items:center;gap:.4rem}
+.cam-badge .cd{width:7px;height:7px;border-radius:50%;background:#22c55e}
 
-/* Stats bar */
-.stats-bar{display:grid;grid-template-columns:repeat(6,1fr);gap:.8rem}
-.stat{background:#111320;border:1px solid #1e2235;border-radius:10px;padding:.7rem .8rem;text-align:center}
-.stat .sv{font-size:2.4rem;font-weight:800;line-height:1;transition:all .3s}
-.stat .sl{font-size:.65rem;color:#9ca4b3;text-transform:uppercase;letter-spacing:.06em;margin-top:.2rem}
-.stat.c1 .sv{color:#00b4d8}
-.stat.c2 .sv{color:#22c55e}
-.stat.c3 .sv{color:#f59e0b}
-.stat.c4 .sv{color:#a855f7}
-.stat.c5 .sv{color:#3b82f6}
-.stat.c6 .sv{color:#ef4444}
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}
+.stat{background:#111320;border:1px solid #1e2235;border-radius:8px;padding:.5rem;text-align:center}
+.stat .sv{font-size:1.8rem;font-weight:800;line-height:1;transition:all .3s}
+.stat .sl{font-size:.6rem;color:#9ca4b3;text-transform:uppercase;letter-spacing:.06em;margin-top:.15rem}
+.stat.c1 .sv{color:#00b4d8}.stat.c2 .sv{color:#22c55e}.stat.c3 .sv{color:#f59e0b}.stat.c4 .sv{color:#a855f7}.stat.c5 .sv{color:#3b82f6}
 
-/* Main area */
-.main-area{display:grid;grid-template-columns:1fr 380px;gap:1rem;min-height:0;overflow:hidden}
+.main-area{display:grid;grid-template-columns:1fr 380px;gap:.8rem;min-height:0;overflow:hidden}
 
-/* Event feed — hero */
-.feed-panel{background:#111320;border:1px solid #1e2235;border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
-.feed-hdr{padding:.6rem 1rem;font-size:.75rem;color:#00b4d8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;border-bottom:1px solid #1e2235;display:flex;align-items:center;gap:.5rem;flex-shrink:0}
-.feed-hdr .fd{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 1.5s infinite}
+/* Left: Player + Insights stacked */
+.left-col{display:flex;flex-direction:column;gap:.8rem;min-height:0}
+.player-box{background:#000;border:1px solid #1e2235;border-radius:10px;overflow:hidden;flex:3;position:relative;min-height:200px}
+.player-box iframe{width:100%;height:100%;border:none}
+.player-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#4a5068;gap:.5rem}
+.player-placeholder .pp-icon{font-size:3rem}
+.player-placeholder .pp-text{font-size:.85rem}
+.player-placeholder .pp-sub{font-size:.7rem;color:#3a3f52}
+.insights-box{background:#111320;border:1px solid #1e2235;border-radius:10px;overflow:hidden;flex:2;min-height:120px}
+.insights-box iframe{width:100%;height:100%;border:none}
+.insights-hdr{padding:.4rem .8rem;font-size:.65rem;color:#9ca4b3;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #1e2235;display:flex;align-items:center;gap:.4rem}
+
+/* Right: Event feed */
+.feed-panel{background:#111320;border:1px solid #1e2235;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.feed-hdr{padding:.5rem .8rem;font-size:.7rem;color:#00b4d8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;border-bottom:1px solid #1e2235;display:flex;align-items:center;gap:.4rem;flex-shrink:0}
+.feed-hdr .fd{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pulse 1.5s infinite}
 .feed-hdr .fd.on{background:#22c55e}
 .feed-list{flex:1;overflow-y:auto;padding:.3rem .5rem;scroll-behavior:smooth}
-.feed-list::-webkit-scrollbar{width:6px}
+.feed-list::-webkit-scrollbar{width:5px}
 .feed-list::-webkit-scrollbar-track{background:transparent}
 .feed-list::-webkit-scrollbar-thumb{background:#2c3247;border-radius:3px}
-.fe{display:flex;align-items:flex-start;gap:.6rem;padding:.55rem .5rem;border-bottom:1px solid #0f111a;border-left:3px solid transparent;transition:background .15s}
+.fe{display:flex;align-items:flex-start;gap:.5rem;padding:.4rem .4rem;border-bottom:1px solid #0f111a;border-left:3px solid transparent;transition:background .15s}
 .fe:hover{background:rgba(255,255,255,.02)}
 .fe:last-child{border-bottom:none}
 .fe.new{animation:slideIn .4s ease-out}
-@keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
 .fe.t-person{border-left-color:#00b4d8}
 .fe.t-alert{border-left-color:#ef4444}
 .fe.t-zone{border-left-color:#22c55e}
-.fe .ficon{flex-shrink:0;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.9rem}
-.fe .ficon.person{background:#1e3a5f}
-.fe .ficon.alert{background:#5f1e1e}
-.fe .ficon.zone{background:#1e5f3a}
+.fe .ficon{flex-shrink:0;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem}
+.fe .ficon.person{background:#1e3a5f}.fe .ficon.alert{background:#5f1e1e}.fe .ficon.zone{background:#1e5f3a}
 .fe .fbody{flex:1;min-width:0}
-.fe .ftop{display:flex;align-items:center;gap:.5rem}
-.fe .fbadge{font-size:.6rem;font-weight:700;text-transform:uppercase;padding:.15rem .4rem;border-radius:4px;flex-shrink:0}
+.fe .ftop{display:flex;align-items:center;gap:.4rem}
+.fe .fbadge{font-size:.55rem;font-weight:700;text-transform:uppercase;padding:.1rem .35rem;border-radius:3px;flex-shrink:0}
 .fe .fbadge.b-person{background:rgba(0,180,216,.15);color:#00b4d8}
 .fe .fbadge.b-alert{background:rgba(239,68,68,.15);color:#ef4444}
 .fe .fbadge.b-zone{background:rgba(34,197,94,.15);color:#22c55e}
-.fe .ftext{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe .ftime{font-size:.7rem;color:#6b7280;flex-shrink:0;margin-top:2px}
-.feed-empty{padding:2rem;text-align:center;color:#4a5068;font-size:.9rem}
-
-/* Right column */
-.right-col{display:flex;flex-direction:column;gap:.8rem;min-height:0}
-.chart-box{background:#111320;border:1px solid #1e2235;border-radius:12px;padding:1rem;flex-shrink:0}
-.chart-box .tl{font-size:.7rem;color:#9ca4b3;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.6rem}
-.bars{display:flex;align-items:flex-end;gap:3px;height:70px}
+.fe .ftext{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe .ftime{font-size:.65rem;color:#6b7280;flex-shrink:0;margin-top:1px}
+.feed-empty{padding:1.5rem;text-align:center;color:#4a5068;font-size:.85rem}
+.spark-box{background:#111320;border:1px solid #1e2235;border-radius:8px;padding:.5rem .6rem;flex-shrink:0}
+.spark-box .tl{font-size:.6rem;color:#9ca4b3;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem}
+.bars{display:flex;align-items:flex-end;gap:2px;height:40px}
 .bar{flex:1;background:#00b4d8;border-radius:2px 2px 0 0;min-height:2px;opacity:.5;transition:height .5s}
 .bar:last-child{opacity:1}
 
-/* AI canvas */
-.canvas-box{background:#000;border:1px solid #1e2235;border-radius:12px;flex:1;position:relative;overflow:hidden;min-height:180px}
-.canvas-box canvas{display:block;width:100%;height:100%}
-.hud{position:absolute;font-size:.65rem;font-family:"Cascadia Code","Fira Code",monospace;color:rgba(255,255,255,.6);padding:5px 8px;pointer-events:none}
-.hud-tl{top:0;left:0;display:flex;gap:.6rem;align-items:center}
-.hud-tr{top:0;right:0;color:rgba(0,180,216,.7)}
-.hud-bl{bottom:0;left:0}
-.hud-br{bottom:0;right:0}
-.hud-live{color:#ef4444;font-weight:700;animation:pulse 1.5s infinite}
-.hud-live.on{color:#22c55e}
-
-/* Footer */
-.ftr{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:#4a5068}
-.ftr .br span{color:#00b4d8;font-weight:600;font-size:.8rem}
-</style></head><body>
+.ftr{display:flex;justify-content:space-between;align-items:center;font-size:.7rem;color:#4a5068}
+.ftr .br span{color:#00b4d8;font-weight:600;font-size:.75rem}
+</style>
+<script src="https://aka.ms/vi-mediator-file"></script>
+</head><body>
 <div class="dash">
   <div class="hdr">
     <h1>⬡ <span>GEOINT</span> Booth — Live Perimeter Intelligence</h1>
     <div class="status">
-      <div class="cam-badge"><div class="cd" id="camDot"></div><span id="camLabel">{{ camera_name }}</span></div>
+      <div class="cam-badge"><div class="cd" id="camDot"></div><span>{{ camera_name }}</span></div>
       <div class="dot" id="statusDot"></div>
       <span id="statusText">Connecting...</span>
     </div>
@@ -448,25 +463,29 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
     <div class="stat c3"><div class="sv" id="peakCount">0</div><div class="sl">Peak</div></div>
     <div class="stat c5"><div class="sv" id="zoneEntries">0</div><div class="sl">Zone Entries</div></div>
     <div class="stat c4"><div class="sv" id="alertCount">0</div><div class="sl">AI Alerts</div></div>
-    <div class="stat c6"><div class="sv" id="uptime">0m</div><div class="sl">Uptime</div></div>
   </div>
 
   <div class="main-area">
-    <div class="feed-panel">
-      <div class="feed-hdr"><div class="fd" id="feedDot"></div>LIVE EVENT FEED — Azure Video Indexer</div>
-      <div class="feed-list" id="feedList"><div class="feed-empty">Waiting for camera…</div></div>
-    </div>
-    <div class="right-col">
-      <div class="chart-box">
-        <div class="tl">Detections — Last 60 Seconds</div>
-        <div class="bars" id="sparkline"></div>
+    <div class="left-col">
+      <div class="player-box" id="playerBox">
+        <div class="player-placeholder" id="playerPlaceholder">
+          <div class="pp-icon">🎥</div>
+          <div class="pp-text">Loading Video Indexer Player...</div>
+          <div class="pp-sub">AI-powered object detection with bounding boxes</div>
+        </div>
       </div>
-      <div class="canvas-box">
-        <canvas id="aiCanvas"></canvas>
-        <div class="hud hud-tl"><span class="hud-live" id="hudLive">● LIVE</span><span id="hudRes" style="color:rgba(255,255,255,.35)"></span></div>
-        <div class="hud hud-tr">YOLOv8 + VI Arc</div>
-        <div class="hud hud-bl" id="hudCam">{{ camera_name }}</div>
-        <div class="hud hud-br" id="hudFps">-- fps</div>
+      <div class="insights-box" id="insightsBox">
+        <div class="insights-hdr">AI Insights — Azure Video Indexer</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.8rem;min-height:0">
+      <div class="feed-panel" style="flex:1;min-height:0">
+        <div class="feed-hdr"><div class="fd" id="feedDot"></div>LIVE EVENT FEED</div>
+        <div class="feed-list" id="feedList"><div class="feed-empty">Waiting for camera…</div></div>
+      </div>
+      <div class="spark-box">
+        <div class="tl">Detections — Last 60 s</div>
+        <div class="bars" id="sparkline"></div>
       </div>
     </div>
   </div>
@@ -478,36 +497,23 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
 </div>
 <script>
 const t0=Date.now();
-const canvas=document.getElementById('aiCanvas');
-const ctx=canvas.getContext('2d');
-let dets=[],scanY=0,isOn=false,lastPoll=0;
 const icons={person:'👤',alert:'⚠️',zone:'📍'};
 
-function resizeCanvas(){const r=canvas.parentElement.getBoundingClientRect();canvas.width=r.width*devicePixelRatio;canvas.height=r.height*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio)}
-
-function drawFrame(){
-const w=canvas.width/devicePixelRatio,h=canvas.height/devicePixelRatio;
-ctx.fillStyle='#080a12';ctx.fillRect(0,0,w,h);
-ctx.strokeStyle='rgba(30,34,53,.5)';ctx.lineWidth=.5;
-for(let x=0;x<w;x+=35){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
-for(let y=0;y<h;y+=35){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
-if(!isOn&&!dets.length){ctx.fillStyle='rgba(156,164,179,.25)';ctx.font='600 14px system-ui';ctx.textAlign='center';ctx.fillText('AWAITING CAMERA FEED',w/2,h/2-8);ctx.font='11px system-ui';ctx.fillText('Connect VI camera to see live AI detections',w/2,h/2+12);ctx.textAlign='start'}
-dets.forEach(d=>{
-const b=d.bbox||{};const bx=(b.x||0)*w,by=(b.y||0)*h,bw=(b.width||b.w||.08)*w,bh=(b.height||b.h||.2)*h;
-const isPerson=(d.type||'').toLowerCase().includes('person');
-const col=isPerson?'#00b4d8':'#f59e0b';const conf=d.confidence?(d.confidence*100).toFixed(0):'—';
-ctx.shadowColor=col;ctx.shadowBlur=6;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);ctx.shadowBlur=0;
-const c=8;ctx.lineWidth=3;ctx.strokeStyle=col;
-ctx.beginPath();ctx.moveTo(bx,by+c);ctx.lineTo(bx,by);ctx.lineTo(bx+c,by);ctx.stroke();
-ctx.beginPath();ctx.moveTo(bx+bw-c,by);ctx.lineTo(bx+bw,by);ctx.lineTo(bx+bw,by+c);ctx.stroke();
-ctx.beginPath();ctx.moveTo(bx,by+bh-c);ctx.lineTo(bx,by+bh);ctx.lineTo(bx+c,by+bh);ctx.stroke();
-ctx.beginPath();ctx.moveTo(bx+bw-c,by+bh);ctx.lineTo(bx+bw,by+bh);ctx.lineTo(bx+bw,by+bh-c);ctx.stroke();
-const lbl=`${d.type||'object'} ${conf}%`;ctx.font='600 10px monospace';const tm=ctx.measureText(lbl);
-ctx.fillStyle=col;ctx.fillRect(bx,by-14,tm.width+6,14);ctx.fillStyle='#000';ctx.fillText(lbl,bx+3,by-3);
-if(d.id){ctx.font='9px monospace';ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillText('ID:'+d.id,bx+3,by+bh-4)}
-});
-if(isOn){scanY=(scanY+1.5)%h;const g=ctx.createLinearGradient(0,scanY-15,0,scanY+15);g.addColorStop(0,'rgba(0,180,216,0)');g.addColorStop(.5,'rgba(0,180,216,.1)');g.addColorStop(1,'rgba(0,180,216,0)');ctx.fillStyle=g;ctx.fillRect(0,scanY-15,w,30)}
-requestAnimationFrame(drawFrame)}
+// Load VI widgets
+async function loadWidgets(){
+  try{
+    const r=await fetch('/api/widget-config');
+    const cfg=await r.json();
+    if(cfg.player){
+      const pb=document.getElementById('playerBox');
+      pb.innerHTML='<iframe src="'+cfg.player+'" allowfullscreen allow="autoplay"></iframe>';
+    }
+    if(cfg.insights){
+      const ib=document.getElementById('insightsBox');
+      ib.innerHTML='<iframe src="'+cfg.insights+'"></iframe>';
+    }
+  }catch(e){console.error('Widget load failed',e)}
+}
 
 async function poll(){try{
 const r=await fetch('/api/stats');const d=await r.json();
@@ -517,22 +523,16 @@ document.getElementById('peakCount').textContent=d.peak_count;
 document.getElementById('zoneEntries').textContent=d.zone_entries;
 document.getElementById('alertCount').textContent=d.alert_count;
 
-isOn=d.camera_status==='Online';
+const isOn=d.camera_status==='Online';
 document.getElementById('statusDot').classList.toggle('on',isOn);
 document.getElementById('camDot').style.background=isOn?'#22c55e':'#ef4444';
 document.getElementById('statusText').textContent=isOn?'Live — Real-Time AI Detection':d.camera_status;
-document.getElementById('hudLive').classList.toggle('on',isOn);
 document.getElementById('feedDot').classList.toggle('on',isOn);
-document.getElementById('hudRes').textContent=d.resolution||'';
-
-dets=d.last_detections||[];
-
-const now=Date.now();if(lastPoll){document.getElementById('hudFps').textContent=((1000/(now-lastPoll)).toFixed(0))+' fps'}lastPoll=now;
 
 const mx=Math.max(...d.spark_data,1);
 document.getElementById('sparkline').innerHTML=d.spark_data.map(v=>'<div class="bar" style="height:'+Math.max(4,(v/mx)*100)+'%"></div>').join('');
 
-const evs=(d.events||[]).slice(0,25);
+const evs=(d.events||[]).slice(0,30);
 if(evs.length){
 document.getElementById('feedList').innerHTML=evs.map((e,i)=>{
 const t=e.type||'zone';
@@ -545,11 +545,9 @@ return '<div class="fe t-'+t+(i===0?' new':'')+'">'+
 '<span class="ftime">'+e.time+'</span></div>'}).join('')}
 else{document.getElementById('feedList').innerHTML='<div class="feed-empty">'+(isOn?'Monitoring — no events yet':'Waiting for camera…')+'</div>'}
 
-const mins=Math.floor((Date.now()-t0)/60000);
-document.getElementById('uptime').textContent=mins<60?mins+'m':Math.floor(mins/60)+'h'+mins%60+'m';
 }catch(e){document.getElementById('statusText').textContent='Reconnecting...'}}
 
-resizeCanvas();window.addEventListener('resize',resizeCanvas);requestAnimationFrame(drawFrame);
+loadWidgets();
 setInterval(poll,2000);poll();
 setInterval(()=>{const n=new Date();document.getElementById('clock').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})},1000);
 </script></body></html>"""
