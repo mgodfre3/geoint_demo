@@ -72,6 +72,6 @@ spec:
     app: booth-analytics
   ports:
   - name: http
-    port: 8088
+    port: 80
     targetPort: 8080
-    nodePort: 30088
+    nodePort: 30080
