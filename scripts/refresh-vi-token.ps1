@@ -8,18 +8,20 @@
 param(
     [string]$AccountName = "AC-VI",
     [string]$ResourceGroup = "AdaptiveCloud-VideoIndexer",
+    [string]$ExtensionId = "/subscriptions/fbaf508b-cb61-4383-9cda-a42bfa0c7bc9/resourceGroups/acx-geoint-demo/providers/Microsoft.Kubernetes/connectedclusters/den-vi/providers/Microsoft.KubernetesConfiguration/extensions/denver-vi",
     [string]$Namespace = "geoint-booth",
     [string]$SecretName = "vi-token"
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Generating VI access token..." -ForegroundColor Yellow
+Write-Host "Generating VI Extension access token..." -ForegroundColor Yellow
 $bodyFile = [System.IO.Path]::GetTempFileName()
-Set-Content -Path $bodyFile -Value '{"permissionType":"Contributor","scope":"Account"}'
+$body = @{permissionType="Contributor";scope="Account";extensionId=$ExtensionId} | ConvertTo-Json
+Set-Content -Path $bodyFile -Value $body
 
 $result = az rest --method post `
-    --url "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$ResourceGroup/providers/Microsoft.VideoIndexer/accounts/$AccountName/generateAccessToken?api-version=2025-01-01" `
+    --url "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$ResourceGroup/providers/Microsoft.VideoIndexer/accounts/$AccountName/generateExtensionAccessToken?api-version=2023-06-02-preview" `
     --body "@$bodyFile" `
     --headers "Content-Type=application/json" 2>&1
 

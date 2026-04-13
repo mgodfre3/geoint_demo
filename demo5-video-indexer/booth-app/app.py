@@ -9,6 +9,12 @@ VI_ENDPOINT = os.environ.get("VI_ENDPOINT", "https://denver-vi.default.svc.clust
 VI_ACCOUNT_ID = os.environ.get("VI_ACCOUNT_ID", "d987d021-dd25-4fec-80af-09631f7c7726")
 CAMERA_NAME = os.environ.get("VI_CAMERA_NAME", "geoint-booth-cam")
 CAMERA_RTSP_URL = os.environ.get("CAMERA_RTSP_URL", "")
+VI_EXTENSION_ID = os.environ.get("VI_EXTENSION_ID",
+    "/subscriptions/fbaf508b-cb61-4383-9cda-a42bfa0c7bc9/resourceGroups/acx-geoint-demo"
+    "/providers/Microsoft.Kubernetes/connectedclusters/den-vi"
+    "/providers/Microsoft.KubernetesConfiguration/extensions/denver-vi")
+VI_ACCOUNT_RG = os.environ.get("VI_ACCOUNT_RG", "AdaptiveCloud-VideoIndexer")
+VI_ACCOUNT_NAME = os.environ.get("VI_ACCOUNT_NAME", "AC-VI")
 
 _REFRESH_BUFFER_S = 300  # renew 5 min before expiry
 
@@ -42,6 +48,60 @@ def get_token() -> str:
 
 
 # ── Token refresh methods (priority order) ────────────────────────────
+
+def _refresh_via_arm_extension_token():
+    """Generate a VI Arc extension token via ARM API (requires az CLI login or managed identity)."""
+    tenant = os.environ.get("AZURE_TENANT_ID")
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    if not all([tenant, client_id, client_secret]):
+        return None
+    try:
+        # Get ARM token via service principal
+        r = requests.post(
+            f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "https://management.azure.com/.default",
+            },
+            timeout=15,
+        )
+        if not r.ok:
+            return None
+        arm_token = r.json().get("access_token")
+        if not arm_token:
+            return None
+
+        # Call generateExtensionAccessToken
+        sub = os.environ.get("AZURE_SUBSCRIPTION_ID",
+                             "fbaf508b-cb61-4383-9cda-a42bfa0c7bc9")
+        url = (f"https://management.azure.com/subscriptions/{sub}"
+               f"/resourceGroups/{VI_ACCOUNT_RG}"
+               f"/providers/Microsoft.VideoIndexer/accounts/{VI_ACCOUNT_NAME}"
+               f"/generateExtensionAccessToken?api-version=2023-06-02-preview")
+        r2 = requests.post(
+            url,
+            json={
+                "permissionType": "Contributor",
+                "scope": "Account",
+                "extensionId": VI_EXTENSION_ID,
+            },
+            headers={
+                "Authorization": f"Bearer {arm_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        if r2.ok:
+            vi_token = r2.json().get("accessToken")
+            if vi_token:
+                exp = _jwt_exp(vi_token) or (time.time() + 3600)
+                return vi_token, exp
+    except Exception as e:
+        app.logger.error(f"ARM extension token refresh: {e}")
+    return None
 
 def _jwt_exp(token: str) -> float:
     """Extract 'exp' claim from a JWT without cryptographic validation."""
@@ -139,6 +199,7 @@ def _refresh_via_file():
 def _do_refresh() -> bool:
     """Try every available method; update cache on first success."""
     for name, method in [
+        ("arm-extension",    _refresh_via_arm_extension_token),
         ("workload-identity", _refresh_via_workload_identity),
         ("service-principal", _refresh_via_service_principal),
         ("file",             _refresh_via_file),
