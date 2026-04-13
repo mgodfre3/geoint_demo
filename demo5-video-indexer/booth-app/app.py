@@ -256,20 +256,37 @@ def discover_camera():
         if r.ok:
             data = r.json()
             cameras = data.get("results", data if isinstance(data, list) else [])
-            # Prefer Online camera matching CAMERA_NAME, then any Online camera
-            for cam in cameras:
-                if cam.get("name") == CAMERA_NAME and cam.get("status") == "Online":
-                    _state["camera_id"] = cam["id"]
-                    _state["camera_status"] = "Online"
-                    app.logger.info(f"Camera discovered: {cam['name']} ({cam['id']})")
-                    return
+            # Prefer camera matching CAMERA_NAME, then try each Online camera
+            # that actually has insights data
+            candidates = []
             for cam in cameras:
                 if cam.get("status") == "Online":
+                    if cam.get("name") == CAMERA_NAME:
+                        candidates.insert(0, cam)
+                    else:
+                        candidates.append(cam)
+            for cam in candidates:
+                # Quick check: does this camera have insights?
+                ri = requests.get(
+                    f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}"
+                    f"/Cameras/{cam['id']}/Insights",
+                    headers={"Authorization": f"Bearer {token}"},
+                    verify=False, timeout=5,
+                )
+                if ri.ok:
                     _state["camera_id"] = cam["id"]
                     _state["camera_status"] = "Online"
-                    app.logger.info(f"Using online camera: {cam['name']} ({cam['id']})")
+                    app.logger.info(
+                        f"Camera with insights: {cam['name']} ({cam['id']})")
                     return
-            if cameras:
+            # No camera with insights — use first Online camera
+            if candidates:
+                _state["camera_id"] = candidates[0]["id"]
+                _state["camera_status"] = "Online"
+                app.logger.info(
+                    f"Using camera (no insights yet): "
+                    f"{candidates[0]['name']} ({candidates[0]['id']})")
+            elif cameras:
                 _state["camera_id"] = cameras[0]["id"]
                 _state["camera_status"] = cameras[0].get("status", "Unknown")
     except Exception as e:
@@ -293,7 +310,6 @@ def poll_insights():
             r = requests.get(
                 f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Cameras/{_state['camera_id']}/Insights",
                 headers={"Authorization": f"Bearer {token}"},
-                params={"dateTime": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
                 verify=False, timeout=10
             )
             if r.ok:
