@@ -207,4 +207,4 @@ demo2-geo-platform/geoserver/data_dir/logs/
 
 # Tile data (too large for git)
 *.mbtiles
-*.pmtiles
+*.pmtilestodos.db

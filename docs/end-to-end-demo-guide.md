@@ -15,7 +15,7 @@ Key takeaway: everything runs on two rugged Azure Local nodes—no cloud round t
 
 | Component | Role | IP / Location | Ports | Suggested DNS A record (optional) |
 |-----------|------|---------------|-------|----------------------------------|
-| AKS worker node | Hosts Demo 1 & Demo 4 pods, IoT Operations extension | `172.22.84.50` | 8081 (Vision UI), 8082 (Vision API), 8086 (Analyst UI), NodePort `31883` (MQTT) | `aks.den.geoint.local` |
+| AKS worker node | Hosts Demo 1 & Demo 4 pods, IoT Operations extension | `172.22.84.50` | 8081/NodePort 30081 (Vision UI), 8082/NodePort 30082 (Vision API), 8086/NodePort 30087 (Analyst UI), NodePort `31883` (MQTT) | `aks.den.geoint.local` |
 | VM: Geo Platform | Demo 2 containers (GeoServer, PostGIS, TileServer, ingest UI) | `172.22.84.42` | 8083 (MapLibre/Cesium UI), 8084 (GeoServer), 8085 (TileServer internal) | `geo.den.geoint.local` |
 | VM: Tactical Globe | Demo 3 Cesium kiosk | `172.22.84.43` | 8085 (Globe UI) | `globe.den.geoint.local` |
 | Sensor Simulator (optional laptop) | Publishes MQTT telemetry | operator workstation | — | `sim.den.geoint.local` (CNAME to laptop) |

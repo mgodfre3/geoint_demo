@@ -11,4 +11,4 @@ spec:
     - name: chat-api
       port: 8086
       targetPort: 8087
-      nodePort: 30086
+      nodePort: 30087
