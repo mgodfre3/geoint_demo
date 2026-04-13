@@ -32,7 +32,15 @@ DEFAULT_SERVICES = [
         "url": "http://analyst.den.geoint.local:8086",
         "health": "http://analyst.den.geoint.local:8086",
     },
+    {
+        "name": "Video Indexer",
+        "description": "Live Perimeter Analytics (Demo 5)",
+        "url": "http://vi.den.geoint.local:8087",
+        "health": "http://vi.den.geoint.local:8087/api/health",
+    },
 ]
+
+DEFAULT_BOOTH_URL = "http://vi.den.geoint.local:8087"
 
 
 def _load_services() -> list[dict[str, str]]:
@@ -49,6 +57,19 @@ def _load_services() -> list[dict[str, str]]:
 
 
 SERVICES = _load_services()
+BOOTH_URL = os.environ.get("BOOTH_APP_URL", DEFAULT_BOOTH_URL)
+
+
+@app.get("/api/live-feed")
+def api_live_feed() -> tuple:
+    """Proxy live-feed stats from the booth-app to avoid CORS issues."""
+    try:
+        resp = requests.get(f"{BOOTH_URL}/api/stats", timeout=5)
+        if resp.ok:
+            return jsonify(resp.json())
+    except requests.RequestException:
+        pass
+    return jsonify({"error": True, "camera_status": "Offline"}), 503
 
 
 @app.get("/api/health")

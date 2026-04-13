@@ -11,10 +11,52 @@
       <header>
         <div>
           <h1>GEOINT Demo Launchpad</h1>
-          <p>One glance health for Demos 1–4. Green = ready for sales.</p>
+          <p>One glance health for Demos 1–5. Green = ready for sales.</p>
         </div>
         <div class="now">UTC <span id="clock"></span></div>
       </header>
+
+      <!-- Live Feed Panel -->
+      <section class="live-feed-panel" id="liveFeedPanel">
+        <div class="lf-header">
+          <div class="lf-title">
+            <span class="lf-dot" id="lfDot"></span>
+            <h2>Live Perimeter Feed</h2>
+            <span class="lf-cam" id="lfCamName">—</span>
+          </div>
+          <span class="lf-status" id="lfStatus">Connecting…</span>
+        </div>
+        <div class="lf-body">
+          <div class="lf-stats">
+            <div class="lf-stat cyan">
+              <div class="lf-val" id="lfPeople">0</div>
+              <div class="lf-label">People Today</div>
+            </div>
+            <div class="lf-stat green">
+              <div class="lf-val" id="lfInFrame">0</div>
+              <div class="lf-label">In Frame Now</div>
+            </div>
+            <div class="lf-stat amber">
+              <div class="lf-val" id="lfPeak">0</div>
+              <div class="lf-label">Peak</div>
+            </div>
+            <div class="lf-stat purple">
+              <div class="lf-val" id="lfAlerts">0</div>
+              <div class="lf-label">Alerts</div>
+            </div>
+          </div>
+          <div class="lf-right">
+            <div class="lf-spark-area">
+              <div class="lf-spark-title">Detections — Last 60 s</div>
+              <div class="lf-spark" id="lfSpark"></div>
+            </div>
+            <div class="lf-events" id="lfEvents">
+              <div class="lf-events-empty">Waiting for camera…</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="services" class="grid"></section>
     </main>
     <script src="app.js"></script>
