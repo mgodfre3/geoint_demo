@@ -19,6 +19,7 @@ Key takeaway: everything runs on two rugged Azure Local nodes—no cloud round t
 | VM: Geo Platform | Demo 2 containers (GeoServer, PostGIS, TileServer, ingest UI) | `172.22.84.42` | 8083 (MapLibre/Cesium UI), 8084 (GeoServer), 8085 (TileServer internal) | `geo.den.geoint.local` |
 | VM: Tactical Globe | Demo 3 Cesium kiosk | `172.22.84.43` | 8085 (Globe UI) | `globe.den.geoint.local` |
 | Sensor Simulator (optional laptop) | Publishes MQTT telemetry | operator workstation | — | `sim.den.geoint.local` (CNAME to laptop) |
+| Mobile VI Cluster | Demo 5 booth analytics (production) | `<mobile-node-ip>` | 30080 (Booth Analytics) | `vi.mobile.geoint.local` |
 
 > Update `.env.denver` if IPs change so helper scripts stay consistent. DNS names should resolve on the booth LAN only; no public DNS needed.
 

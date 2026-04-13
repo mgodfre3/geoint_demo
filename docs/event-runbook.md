@@ -179,6 +179,7 @@ Start-Process chrome "--kiosk http://<node1-ip>:8083"   # Demo 2 — Geo Platfor
 Start-Process chrome "--kiosk http://<node2-ip>:8085"   # Demo 3 — Tactical Globe
 Start-Process chrome "--kiosk http://<node2-ip>:8086"   # Demo 4 — Analyst Assistant
 Start-Process chrome "--kiosk http://<node2-ip>:8088"   # Demo 5 — Booth Analytics
+Start-Process chrome "--kiosk http://<mobile-node-ip>:30080"   # Demo 5 — Booth Analytics (Mobile)
 ```
 
 > **Tip:** Use `--new-window` instead of `--kiosk` if you need to switch between demos on a single monitor.
@@ -192,6 +193,7 @@ Visit each URL and confirm:
 - [ ] Demo 3: Cesium globe renders and simulated tracks animate
 - [ ] Demo 4: Chat UI loads and responds to a test question
 - [ ] Demo 5: Booth Analytics dashboard loads and shows camera status
+- [ ] Demo 5 (Mobile): Booth Analytics loads, live camera feed streams, events appear
 
 ---
 
@@ -206,6 +208,7 @@ Visit each URL and confirm:
 | 3 | 3D Tactical Globe | `http://<node2-ip>:8085` | VM |
 | 4 | Analyst AI Assistant | `http://<node2-ip>:8086` | AKS (GPU) |
 | 5 | Booth Analytics | `http://<node2-ip>:8088` | AKS |
+| 5 | Booth Analytics (Mobile) | `http://<mobile-node-ip>:30080` | Mobile VI Cluster |
 
 ### 3.2 Talking Points & Interaction Guide
 
