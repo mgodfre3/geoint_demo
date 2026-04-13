@@ -179,7 +179,23 @@ const hudRes = document.getElementById("hudRes");
 const hudCam = document.getElementById("hudCam");
 const hudFps = document.getElementById("hudFps");
 
-const eventIcons = { person: "\u{1F464}", alert: "\u26A0\uFE0F", zone: "\u{1F4CD}" };
+const eventIcons = { person: "\u{1F464}", alert: "\u26A0\uFE0F", zone: "\u{1F4CD}", vehicle: "\u{1F697}", object: "\u{1F4E6}" };
+
+const badgeClasses = {
+  person: "badge-person",
+  vehicle: "badge-vehicle",
+  object: "badge-object",
+  alert: "badge-alert",
+  zone: "badge-zone",
+};
+
+const evClasses = {
+  person: "ev-person",
+  vehicle: "ev-vehicle",
+  object: "ev-object",
+  alert: "ev-alert",
+  zone: "ev-zone",
+};
 let sseActive = false;
 let lastPollTime = 0;
 
@@ -232,16 +248,41 @@ function applyFeedData(d) {
 }
 
 function renderEvents(events, online) {
-  const items = events.slice(0, 20);
+  const items = events.slice(0, 25);
   if (items.length) {
     lfEvents.innerHTML = items
-      .map(
-        (e, i) =>
-          `<div class="lf-ev${i === 0 ? " lf-ev-new" : ""}">` +
-          `<span class="lf-ev-icon">${eventIcons[e.type] || "\u{1F4CC}"}</span>` +
-          `<span class="lf-ev-text">${e.text}</span>` +
-          `<span class="lf-ev-time">${e.time}</span></div>`
-      )
+      .map((e, i) => {
+        const evType = (e.type || "object").toLowerCase();
+        const rowClass = evClasses[evType] || "ev-object";
+        const icon = eventIcons[evType] || "\u{1F4CC}";
+        const badge = badgeClasses[evType] || "badge-object";
+        const badgeLabel = evType.toUpperCase();
+
+        const confPct = e.confidence != null
+          ? `${(typeof e.confidence === "number" && e.confidence <= 1 ? e.confidence * 100 : e.confidence).toFixed(0)}%`
+          : "";
+
+        // Build tracking ID string
+        let metaParts = [];
+        if (e.count != null) metaParts.push(`${e.count} in frame`);
+        if (e.ids && e.ids.length) metaParts.push(`ID: ${e.ids.join(", ")}`);
+        else if (e.id) metaParts.push(`ID: ${e.id}`);
+        const metaStr = metaParts.length ? metaParts.join(" · ") : "";
+
+        return (
+          `<div class="lf-ev ${rowClass}${i === 0 ? " lf-ev-new" : ""}">` +
+            `<span class="lf-ev-icon">${icon}</span>` +
+            `<div class="lf-ev-body">` +
+              `<div class="lf-ev-top">` +
+                `<span class="lf-ev-badge ${badge}">${badgeLabel}${confPct ? " " + confPct : ""}</span>` +
+                `<span class="lf-ev-text">${e.text}</span>` +
+              `</div>` +
+              (metaStr ? `<div class="lf-ev-meta">${metaStr}</div>` : "") +
+            `</div>` +
+            `<span class="lf-ev-time">${e.time}</span>` +
+          `</div>`
+        );
+      })
       .join("");
   } else {
     lfEvents.innerHTML = `<div class="lf-events-empty">${
