@@ -228,22 +228,54 @@ def poll_insights():
             )
             if r.ok:
                 data = r.json()
-                detections = data.get("detections", [])
-                people = [d for d in detections if d.get("type", "").lower() in ("person", "people")]
-                person_count = len(people)
+                raw_dets = data.get("detections", [])
+
+                # Detect API format: Arc format has "insightName", legacy has "type"
+                is_arc_format = raw_dets and "insightName" in raw_dets[0]
+
+                if is_arc_format:
+                    # Arc API format: detections[].insightName + instances[]
+                    all_instances = []
+                    person_instances = []
+                    for det in raw_dets:
+                        insight = det.get("insightName", "")
+                        det_id = det.get("id", "")
+                        for inst in det.get("instances", []):
+                            entry = {
+                                "type": insight,
+                                "id": det_id,
+                                "confidence": inst.get("confidence", 0),
+                                "bbox": {
+                                    "x": inst.get("x", 0),
+                                    "y": inst.get("y", 0),
+                                    "width": inst.get("width", 0),
+                                    "height": inst.get("height", 0),
+                                },
+                            }
+                            all_instances.append(entry)
+                            if "person" in insight.lower() or "people" in insight.lower():
+                                person_instances.append(entry)
+                    person_count = len(person_instances)
+                    _state["last_detections"] = all_instances
+                    people = person_instances
+                    detections = all_instances
+                else:
+                    # Legacy format fallback
+                    detections = raw_dets
+                    people = [d for d in detections if d.get("type", "").lower() in ("person", "people")]
+                    person_count = len(people)
+                    _state["last_detections"] = [
+                        {
+                            "type": d.get("type", "object"),
+                            "id": d.get("id", ""),
+                            "confidence": d.get("confidence", 0),
+                            "bbox": d.get("boundingBox", d.get("bbox", {})),
+                        }
+                        for d in detections
+                    ]
+
                 _state["current_in_frame"] = person_count
                 _state["resolution"] = f"{data.get('width', '?')}x{data.get('height', '?')}"
-
-                # Store raw detection data for visualization
-                _state["last_detections"] = [
-                    {
-                        "type": d.get("type", "object"),
-                        "id": d.get("id", ""),
-                        "confidence": d.get("confidence", 0),
-                        "bbox": d.get("boundingBox", d.get("bbox", {})),
-                    }
-                    for d in detections
-                ]
                 _state["frame_width"] = data.get("width", 1920)
                 _state["frame_height"] = data.get("height", 1080)
 
@@ -343,6 +375,45 @@ def stats():
 def health():
     return jsonify({"status": "ok", "camera": _state["camera_status"]})
 
+@app.route("/api/streaming")
+def streaming():
+    """Get HLS streaming URL for the live camera feed."""
+    camera_id = _state.get("camera_id", "")
+    if not camera_id:
+        return jsonify({"error": "No camera connected"}), 503
+    token = get_token()
+    if not token:
+        return jsonify({"error": "No token"}), 503
+    try:
+        # Try the camera live streaming manifest endpoint
+        r = requests.get(
+            f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Cameras/{camera_id}/LiveStreamingManifest",
+            headers={"Authorization": f"Bearer {token}"},
+            verify=False, timeout=10
+        )
+        if r.ok:
+            return jsonify(r.json())
+        # Fallback: check for recorded videos from this camera
+        r2 = requests.get(
+            f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos?source={camera_id}&pageSize=1",
+            headers={"Authorization": f"Bearer {token}"},
+            verify=False, timeout=10
+        )
+        if r2.ok:
+            videos = r2.json().get("results", [])
+            if videos:
+                vid_id = videos[0]["id"]
+                r3 = requests.get(
+                    f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos/{vid_id}/streaming-url",
+                    headers={"Authorization": f"Bearer {token}"},
+                    verify=False, timeout=10
+                )
+                if r3.ok:
+                    return jsonify(r3.json())
+    except requests.RequestException as e:
+        app.logger.error(f"Streaming URL fetch: {e}")
+    return jsonify({"error": "Streaming unavailable"}), 503
+
 @app.route("/api/widget-config")
 def widget_config():
     """Return VI widget embed URLs for the Player and Insights iframes."""
@@ -400,6 +471,7 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
 .left-col{display:flex;flex-direction:column;gap:.8rem;min-height:0}
 .player-box{background:#000;border:1px solid #1e2235;border-radius:10px;overflow:hidden;flex:3;position:relative;min-height:200px}
 .player-box iframe{width:100%;height:100%;border:none}
+#videoPlayer{width:100%;height:100%;object-fit:contain;display:none}
 .player-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#4a5068;gap:.5rem}
 .player-placeholder .pp-icon{font-size:3rem}
 .player-placeholder .pp-text{font-size:.85rem}
@@ -445,7 +517,7 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
 .ftr{display:flex;justify-content:space-between;align-items:center;font-size:.7rem;color:#4a5068}
 .ftr .br span{color:#00b4d8;font-weight:600;font-size:.75rem}
 </style>
-<script src="https://aka.ms/vi-mediator-file"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head><body>
 <div class="dash">
   <div class="hdr">
@@ -468,14 +540,16 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
   <div class="main-area">
     <div class="left-col">
       <div class="player-box" id="playerBox">
+        <video id="videoPlayer" autoplay muted playsinline></video>
         <div class="player-placeholder" id="playerPlaceholder">
           <div class="pp-icon">🎥</div>
-          <div class="pp-text">Loading Video Indexer Player...</div>
-          <div class="pp-sub">AI-powered object detection with bounding boxes</div>
+          <div class="pp-text">Connecting to Live Camera Feed...</div>
+          <div class="pp-sub">Waiting for VI Arc streaming token</div>
         </div>
       </div>
       <div class="insights-box" id="insightsBox">
-        <div class="insights-hdr">AI Insights — Azure Video Indexer</div>
+        <div class="insights-hdr">🔍 Detection Summary — Live AI Analysis</div>
+        <div id="detectionSummary" style="padding:.6rem .8rem;font-size:.8rem;color:#9ca4b3">Waiting for detections...</div>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:.8rem;min-height:0">
@@ -499,20 +573,28 @@ body{background:#0a0c14;color:#f5f6fa;height:100vh;overflow:hidden}
 const t0=Date.now();
 const icons={person:'👤',alert:'⚠️',zone:'📍'};
 
-// Load VI widgets
-async function loadWidgets(){
+// Load HLS live stream
+let hlsLoaded=false;
+async function loadStream(){
+  if(hlsLoaded) return;
   try{
-    const r=await fetch('/api/widget-config');
-    const cfg=await r.json();
-    if(cfg.player){
-      const pb=document.getElementById('playerBox');
-      pb.innerHTML='<iframe src="'+cfg.player+'" allowfullscreen allow="autoplay"></iframe>';
+    const r=await fetch('/api/streaming');
+    if(!r.ok) return;
+    const d=await r.json();
+    if(d.url){
+      const video=document.getElementById('videoPlayer');
+      const ph=document.getElementById('playerPlaceholder');
+      if(Hls.isSupported()){
+        const hls=new Hls();
+        hls.loadSource(d.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED,()=>{video.play();video.style.display='block';ph.style.display='none';hlsLoaded=true});
+      }else if(video.canPlayType('application/vnd.apple.mpegurl')){
+        video.src=d.url;
+        video.addEventListener('loadedmetadata',()=>{video.play();video.style.display='block';ph.style.display='none';hlsLoaded=true});
+      }
     }
-    if(cfg.insights){
-      const ib=document.getElementById('insightsBox');
-      ib.innerHTML='<iframe src="'+cfg.insights+'"></iframe>';
-    }
-  }catch(e){console.error('Widget load failed',e)}
+  }catch(e){console.log('Stream not available yet')}
 }
 
 async function poll(){try{
@@ -545,9 +627,18 @@ return '<div class="fe t-'+t+(i===0?' new':'')+'">'+
 '<span class="ftime">'+e.time+'</span></div>'}).join('')}
 else{document.getElementById('feedList').innerHTML='<div class="feed-empty">'+(isOn?'Monitoring — no events yet':'Waiting for camera…')+'</div>'}
 
+// Update detection summary from last_detections
+const dets=d.last_detections||[];
+if(dets.length){
+const counts={};dets.forEach(det=>{const t=det.type||'object';counts[t]=(counts[t]||0)+1});
+const html=Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([t,c])=>'<span style="display:inline-block;margin:.2rem .3rem;padding:.2rem .5rem;background:#1e2235;border-radius:4px;font-size:.75rem"><span style="color:#00b4d8;font-weight:700">'+c+'</span> '+t+'</span>').join('');
+document.getElementById('detectionSummary').innerHTML=html;
+}else{document.getElementById('detectionSummary').innerHTML='<span style="color:#4a5068">No detections yet</span>'}
+
 }catch(e){document.getElementById('statusText').textContent='Reconnecting...'}}
 
-loadWidgets();
+loadStream();
+setInterval(loadStream,30000);
 setInterval(poll,2000);poll();
 setInterval(()=>{const n=new Date();document.getElementById('clock').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})},1000);
 </script></body></html>"""
