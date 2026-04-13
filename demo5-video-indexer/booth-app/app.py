@@ -447,15 +447,25 @@ def health():
 
 @app.route("/api/streaming")
 def streaming():
-    """Get HLS streaming URL (proxied through this server to handle auth)."""
-    camera_id = _state.get("camera_id", "")
-    if not camera_id:
-        return jsonify({"error": "No camera connected"}), 503
-    token = get_token()
-    if not token:
-        return jsonify({"error": "No token"}), 503
+    """Get HLS streaming URL (live camera via MediaMTX, or recording fallback)."""
+    # Try live stream from media server first
     try:
-        # Get the latest recording for this camera
+        r = requests.get(
+            "http://media-server.default.svc.cluster.local:8888"
+            "/booth-cam/index.m3u8",
+            timeout=5,
+        )
+        if r.ok:
+            return jsonify({"url": "/proxy/live/booth-cam/index.m3u8", "live": True})
+    except requests.RequestException:
+        pass
+
+    # Fallback: recorded video from camera
+    camera_id = _state.get("camera_id", "")
+    token = get_token()
+    if not camera_id or not token:
+        return jsonify({"error": "No camera or token"}), 503
+    try:
         r = requests.get(
             f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos"
             f"?source={camera_id}&pageSize=1&sortBy=-StartTime",
@@ -473,18 +483,32 @@ def streaming():
                     verify=False, timeout=10,
                 )
                 if r2.ok:
-                    data = r2.json()
-                    original_url = data.get("url", "")
-                    if original_url:
-                        # Return a proxied URL so HLS.js goes through us
-                        return jsonify({
-                            "url": f"/proxy/hls/{vid_id}/manifest.m3u8",
-                            "videoId": vid_id,
-                            "direct_url": original_url,
-                        })
+                    return jsonify({
+                        "url": f"/proxy/hls/{vid_id}/manifest.m3u8",
+                        "videoId": vid_id,
+                        "live": False,
+                    })
     except requests.RequestException as e:
         app.logger.error(f"Streaming URL fetch: {e}")
     return jsonify({"error": "Streaming unavailable"}), 503
+
+
+@app.route("/proxy/live/<path:path>")
+def proxy_live_hls(path):
+    """Proxy live HLS from the in-cluster MediaMTX server."""
+    try:
+        r = requests.get(
+            f"http://media-server.default.svc.cluster.local:8888/{path}",
+            timeout=15,
+        )
+        resp = app.make_response(r.content)
+        resp.headers["Content-Type"] = r.headers.get(
+            "Content-Type", "application/vnd.apple.mpegurl")
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, r.status_code
+    except requests.RequestException as e:
+        app.logger.error(f"Live HLS proxy error: {e}")
+        return "Proxy error", 502
 
 
 @app.route("/proxy/hls/<video_id>/<path:path>")
