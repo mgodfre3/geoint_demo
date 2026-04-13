@@ -293,7 +293,53 @@ if ($MqttPassword) {
 
 # Step 4.5: Deploy Video Indexer Extension (if configured)
 $ViAccountId = $envVars['VI_ACCOUNT_ID']
+$ViClusterName = $envVars['VI_AKS_CLUSTER_NAME']
 if ($ViAccountId) {
+    # Create dedicated VI AKS cluster if VI_AKS_CLUSTER_NAME is set and differs from main cluster
+    if ($ViClusterName -and $ViClusterName -ne $ClusterName) {
+        Write-Host "[4.5/5] Checking dedicated VI AKS cluster '$ViClusterName'..." -ForegroundColor Yellow
+        $viAksExists = az aksarc show --name $ViClusterName --resource-group $ResourceGroup --query "properties.provisioningState" -o tsv 2>$null
+        if ($viAksExists -eq "Succeeded") {
+            Write-Host "  [OK] VI AKS cluster '$ViClusterName' already exists" -ForegroundColor Green
+        } elseif ($CustomLocationId -and $LogicalNetworkId) {
+            Write-Host "  Creating VI AKS cluster '$ViClusterName' (this may take 15-30 min)..." -ForegroundColor Gray
+            az aksarc create `
+                --name $ViClusterName `
+                --resource-group $ResourceGroup `
+                --custom-location $CustomLocationId `
+                --vnet-ids $LogicalNetworkId `
+                --kubernetes-version $KubeVersion `
+                --generate-ssh-keys `
+                --output none
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [ERROR] VI AKS cluster creation failed" -ForegroundColor Red
+            } else {
+                Write-Host "  [OK] VI AKS cluster '$ViClusterName' created" -ForegroundColor Green
+            }
+        }
+
+        # Add GPU node pool to VI cluster
+        $viGpuExists = az aksarc nodepool show --name gpupool --cluster-name $ViClusterName --resource-group $ResourceGroup --query name -o tsv 2>$null
+        if ($viGpuExists) {
+            Write-Host "  [OK] GPU node pool on '$ViClusterName' already exists" -ForegroundColor Green
+        } else {
+            Write-Host "  Adding GPU node pool to '$ViClusterName'..." -ForegroundColor Gray
+            az aksarc nodepool add `
+                --name gpupool `
+                --cluster-name $ViClusterName `
+                --resource-group $ResourceGroup `
+                --node-count 1 `
+                --os-type Linux `
+                --node-vm-size Standard_NC8_A2 `
+                --output none
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [WARN] GPU node pool creation on VI cluster may have failed" -ForegroundColor Yellow
+            } else {
+                Write-Host "  [OK] GPU node pool added to '$ViClusterName'" -ForegroundColor Green
+            }
+        }
+    }
+
     Write-Host "[4.5/5] Deploying Video Indexer extension..." -ForegroundColor Yellow
     & "$PSScriptRoot\..\demo5-video-indexer\scripts\deploy-vi-extension.ps1" -EnvFile $EnvFile
 } else {
