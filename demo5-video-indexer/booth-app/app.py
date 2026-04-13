@@ -28,7 +28,13 @@ _state = {
     "events": [],
     "spark_data": [0] * 30,
     "resolution": "",
+    "vi_counters": {},
 }
+
+# Internal tracking state (not JSON-serialized)
+_seen_ids = set()
+_prev_ids = set()
+_prev_det_count = 0
 
 
 def get_token() -> str:
@@ -225,7 +231,6 @@ def poll_insights():
                 detections = data.get("detections", [])
                 people = [d for d in detections if d.get("type", "").lower() in ("person", "people")]
                 person_count = len(people)
-                prev = _state["current_in_frame"]
                 _state["current_in_frame"] = person_count
                 _state["resolution"] = f"{data.get('width', '?')}x{data.get('height', '?')}"
 
@@ -242,18 +247,50 @@ def poll_insights():
                 _state["frame_width"] = data.get("width", 1920)
                 _state["frame_height"] = data.get("height", 1080)
 
-                if person_count > prev:
-                    delta = person_count - prev
-                    _state["total_count"] += delta
-                    _state["zone_entries"] += delta
+                # Track unique person IDs for accurate counting
+                global _seen_ids, _prev_ids, _prev_det_count
+                current_ids = {d.get("id") for d in people if d.get("id")}
+                entered = current_ids - _prev_ids
+                exited = _prev_ids - current_ids
+
+                _seen_ids.update(current_ids)
+                _state["total_count"] = len(_seen_ids)
+                _prev_ids = current_ids
+
+                if entered:
+                    _state["zone_entries"] += len(entered)
+                    id_preview = ", ".join(sorted(entered)[:3])
+                    suffix = "..." if len(entered) > 3 else ""
                     _state["events"].insert(0, {
                         "type": "person",
-                        "text": f"{delta} person(s) entered ({person_count} in frame)",
+                        "text": f"{len(entered)} person(s) entered — {person_count} in frame (IDs: {id_preview}{suffix})",
+                        "time": time.strftime("%I:%M:%S %p")
+                    })
+
+                if exited:
+                    _state["events"].insert(0, {
+                        "type": "person",
+                        "text": f"{len(exited)} person(s) exited — {person_count} remaining",
                         "time": time.strftime("%I:%M:%S %p")
                     })
 
                 if person_count > _state["peak_count"]:
                     _state["peak_count"] = person_count
+
+                # Detection summary for all types
+                all_types = {}
+                for d in detections:
+                    t = d.get("type", "object").lower()
+                    all_types[t] = all_types.get(t, 0) + 1
+
+                if detections and len(detections) != _prev_det_count:
+                    summary_parts = [f"{count} {dtype}" for dtype, count in sorted(all_types.items())]
+                    _state["events"].insert(0, {
+                        "type": "zone",
+                        "text": f"AI detecting: {', '.join(summary_parts)}",
+                        "time": time.strftime("%I:%M:%S %p")
+                    })
+                    _prev_det_count = len(detections)
 
                 for sit in data.get("situations", []):
                     _state["alert_count"] += 1
@@ -263,6 +300,8 @@ def poll_insights():
                         "time": time.strftime("%I:%M:%S %p")
                     })
 
+                # Store VI counter values
+                _state["vi_counters"] = {c.get("name", "zone"): c.get("count", 0) for c in data.get("counters", [])}
                 for counter in data.get("counters", []):
                     if counter.get("count", 0) > 0:
                         _state["events"].insert(0, {
