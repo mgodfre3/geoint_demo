@@ -291,8 +291,9 @@ def poll_insights():
                 continue
 
             r = requests.get(
-                f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/cameras/{_state['camera_id']}/insights",
+                f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Cameras/{_state['camera_id']}/Insights",
                 headers={"Authorization": f"Bearer {token}"},
+                params={"dateTime": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
                 verify=False, timeout=10
             )
             if r.ok:
@@ -494,13 +495,17 @@ def proxy_hls(video_id, path):
         return "Unauthorized", 401
     portal_base = os.environ.get(
         "VI_PORTAL_URL", "https://denver-vi.adaptivecloudlab.com")
-    target = (f"{portal_base}/Accounts/{VI_ACCOUNT_ID}"
-              f"/Videos/{video_id}/streaming-manifest/{path}")
+    # Determine if this is a manifest or segment request
+    account_path = f"/Accounts/{VI_ACCOUNT_ID}/Videos/{video_id}"
+    if path.endswith(".m3u8"):
+        target = f"{portal_base}{account_path}/streaming-manifest/{path}"
+    else:
+        target = f"{portal_base}{account_path}/streaming-file/{path}"
     try:
         r = requests.get(
             target,
             headers={"Authorization": f"Bearer {token}"},
-            verify=False, timeout=15,
+            verify=False, timeout=30,
         )
         if not r.ok:
             return r.text, r.status_code
@@ -511,12 +516,12 @@ def proxy_hls(video_id, path):
         # Rewrite .m3u8 manifests so internal URLs go through our proxy
         if path.endswith(".m3u8"):
             text = body.decode("utf-8", errors="replace")
-            # Rewrite absolute URLs to portal → our proxy
-            text = text.replace(
-                f"{portal_base}/Accounts/{VI_ACCOUNT_ID}"
-                f"/Videos/{video_id}/streaming-manifest/",
-                f"/proxy/hls/{video_id}/",
-            )
+            # Rewrite all portal URLs to go through our proxy
+            for sub in ["streaming-manifest", "streaming-file"]:
+                text = text.replace(
+                    f"{portal_base}{account_path}/{sub}/",
+                    f"/proxy/hls/{video_id}/",
+                )
             body = text.encode("utf-8")
             content_type = "application/vnd.apple.mpegurl"
 
