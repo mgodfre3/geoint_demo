@@ -256,10 +256,18 @@ def discover_camera():
         if r.ok:
             data = r.json()
             cameras = data.get("results", data if isinstance(data, list) else [])
+            # Prefer Online camera matching CAMERA_NAME, then any Online camera
             for cam in cameras:
-                if cam.get("name") == CAMERA_NAME:
+                if cam.get("name") == CAMERA_NAME and cam.get("status") == "Online":
                     _state["camera_id"] = cam["id"]
-                    _state["camera_status"] = cam.get("status", "Unknown")
+                    _state["camera_status"] = "Online"
+                    app.logger.info(f"Camera discovered: {cam['name']} ({cam['id']})")
+                    return
+            for cam in cameras:
+                if cam.get("status") == "Online":
+                    _state["camera_id"] = cam["id"]
+                    _state["camera_status"] = "Online"
+                    app.logger.info(f"Using online camera: {cam['name']} ({cam['id']})")
                     return
             if cameras:
                 _state["camera_id"] = cameras[0]["id"]
@@ -438,7 +446,7 @@ def health():
 
 @app.route("/api/streaming")
 def streaming():
-    """Get HLS streaming URL for the live camera feed."""
+    """Get HLS streaming URL (proxied through this server to handle auth)."""
     camera_id = _state.get("camera_id", "")
     if not camera_id:
         return jsonify({"error": "No camera connected"}), 503
@@ -446,34 +454,79 @@ def streaming():
     if not token:
         return jsonify({"error": "No token"}), 503
     try:
-        # Try the camera live streaming manifest endpoint
+        # Get the latest recording for this camera
         r = requests.get(
-            f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Cameras/{camera_id}/LiveStreamingManifest",
+            f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos"
+            f"?source={camera_id}&pageSize=1&sortBy=-StartTime",
             headers={"Authorization": f"Bearer {token}"},
-            verify=False, timeout=10
+            verify=False, timeout=10,
         )
         if r.ok:
-            return jsonify(r.json())
-        # Fallback: check for recorded videos from this camera
-        r2 = requests.get(
-            f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos?source={camera_id}&pageSize=1",
-            headers={"Authorization": f"Bearer {token}"},
-            verify=False, timeout=10
-        )
-        if r2.ok:
-            videos = r2.json().get("results", [])
+            videos = r.json().get("results", [])
             if videos:
                 vid_id = videos[0]["id"]
-                r3 = requests.get(
-                    f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}/Videos/{vid_id}/streaming-url",
+                r2 = requests.get(
+                    f"{VI_ENDPOINT}/Accounts/{VI_ACCOUNT_ID}"
+                    f"/Videos/{vid_id}/streaming-url",
                     headers={"Authorization": f"Bearer {token}"},
-                    verify=False, timeout=10
+                    verify=False, timeout=10,
                 )
-                if r3.ok:
-                    return jsonify(r3.json())
+                if r2.ok:
+                    data = r2.json()
+                    original_url = data.get("url", "")
+                    if original_url:
+                        # Return a proxied URL so HLS.js goes through us
+                        return jsonify({
+                            "url": f"/proxy/hls/{vid_id}/manifest.m3u8",
+                            "videoId": vid_id,
+                            "direct_url": original_url,
+                        })
     except requests.RequestException as e:
         app.logger.error(f"Streaming URL fetch: {e}")
     return jsonify({"error": "Streaming unavailable"}), 503
+
+
+@app.route("/proxy/hls/<video_id>/<path:path>")
+def proxy_hls(video_id, path):
+    """Proxy HLS manifest and segments — adds auth header transparently."""
+    token = get_token()
+    if not token:
+        return "Unauthorized", 401
+    portal_base = os.environ.get(
+        "VI_PORTAL_URL", "https://denver-vi.adaptivecloudlab.com")
+    target = (f"{portal_base}/Accounts/{VI_ACCOUNT_ID}"
+              f"/Videos/{video_id}/streaming-manifest/{path}")
+    try:
+        r = requests.get(
+            target,
+            headers={"Authorization": f"Bearer {token}"},
+            verify=False, timeout=15,
+        )
+        if not r.ok:
+            return r.text, r.status_code
+
+        content_type = r.headers.get("Content-Type", "application/octet-stream")
+        body = r.content
+
+        # Rewrite .m3u8 manifests so internal URLs go through our proxy
+        if path.endswith(".m3u8"):
+            text = body.decode("utf-8", errors="replace")
+            # Rewrite absolute URLs to portal → our proxy
+            text = text.replace(
+                f"{portal_base}/Accounts/{VI_ACCOUNT_ID}"
+                f"/Videos/{video_id}/streaming-manifest/",
+                f"/proxy/hls/{video_id}/",
+            )
+            body = text.encode("utf-8")
+            content_type = "application/vnd.apple.mpegurl"
+
+        resp = app.make_response(body)
+        resp.headers["Content-Type"] = content_type
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    except requests.RequestException as e:
+        app.logger.error(f"HLS proxy error: {e}")
+        return "Proxy error", 502
 
 @app.route("/api/widget-config")
 def widget_config():
